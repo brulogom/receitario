@@ -62,6 +62,16 @@ export async function deleteMine(id: string): Promise<void> {
   await tx.done;
 }
 
+/** Desfaz a edição de uma receita pronta. Favorita, Quero testar e compras continuam valendo para a original. */
+export async function discardEdits(id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(['recipes', 'versions'], 'readwrite');
+  await tx.objectStore('recipes').delete(id);
+  const versions = tx.objectStore('versions');
+  for (const key of await versions.index('recipeId').getAllKeys(id)) await versions.delete(key);
+  await tx.done;
+}
+
 export async function listVersions(id: string): Promise<RecipeVersion[]> {
   const db = await openDb();
   return sortVersions(await db.getAllFromIndex('versions', 'recipeId', id));

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formatServings, servingsStep, servingsUnitOf, unitLabel } from '../../domain/portions';
 import { buildShoppingList } from '../../domain/shopping';
 import type { Recipe } from '../../domain/types';
 import type { ShoppingState } from '../../storage/db';
@@ -48,26 +49,31 @@ export function ShoppingScreen() {
       {selections.length > 0 && (
         <section className="stack">
           <h2>Receitas</h2>
-          {selections.map(({ recipe, servings }) => (
-            <div className="shopping-recipe" key={recipe.id}>
-              <span className="shopping-name">{recipe.name}</span>
-              {servings !== null && (
-                <div className="stepper">
-                  <button type="button" aria-label={`Menos porções de ${recipe.name}`} disabled={servings <= 1} onClick={() => setServings(recipe.id, servings - 1)}>−</button>
-                  <output>{servings}</output>
-                  <button type="button" aria-label={`Mais porções de ${recipe.name}`} onClick={() => setServings(recipe.id, servings + 1)}>+</button>
-                </div>
-              )}
-              <button
-                type="button"
-                className="button small"
-                aria-label={`Tirar ${recipe.name} da lista`}
-                onClick={() => update({ ...state, selections: state.selections.filter((selection) => selection.recipeId !== recipe.id) })}
-              >
-                Tirar
-              </button>
-            </div>
-          ))}
+          {selections.map(({ recipe, servings }) => {
+            const unit = servingsUnitOf(recipe);
+            const step = servingsStep(unit);
+            return (
+              <div className="shopping-recipe" key={recipe.id}>
+                <span className="shopping-name">{recipe.name}</span>
+                {servings !== null && (
+                  <div className="stepper">
+                    <button type="button" aria-label={`Menos ${unit} de ${recipe.name}`} disabled={servings <= step} onClick={() => setServings(recipe.id, servings - step)}>−</button>
+                    <output>{formatServings(servings)}</output>
+                    <button type="button" aria-label={`Mais ${unit} de ${recipe.name}`} onClick={() => setServings(recipe.id, servings + step)}>+</button>
+                    <span className="muted small">{unitLabel(unit, servings)}</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="button small"
+                  aria-label={`Tirar ${recipe.name} da lista`}
+                  onClick={() => update({ ...state, selections: state.selections.filter((selection) => selection.recipeId !== recipe.id) })}
+                >
+                  Tirar
+                </button>
+              </div>
+            );
+          })}
         </section>
       )}
       {items.length > 0 && (

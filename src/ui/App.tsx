@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { catalog } from '../catalog';
 import { getMine } from '../storage/recipes';
 import type { Recipe } from '../domain/types';
 import { CookScreen } from './screens/CookScreen';
@@ -52,7 +53,7 @@ function EditScreen({ id }: { id: string }) {
   const { loaded } = useRecipes();
   const [recipe, setRecipe] = useState<Recipe | null | undefined>(undefined);
   useEffect(() => {
-    void getMine(id).then((found) => setRecipe(found ?? null));
+    void getMine(id).then((found) => setRecipe(found ?? catalog.find((item) => item.id === id) ?? null));
   }, [id, loaded]);
   if (recipe === undefined) return null;
   if (recipe === null) return <p>Esta receita não foi encontrada.</p>;

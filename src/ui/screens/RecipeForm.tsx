@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { parseIngredientLine, parseSteps } from '../../domain/parser';
-import { formatIngredient } from '../../domain/portions';
+import { DEFAULT_SERVINGS_UNIT, formatIngredient, formatServings, servingsUnitOf } from '../../domain/portions';
 import type { Category, Diet, Ingredient, Recipe, RecipeKind } from '../../domain/types';
 import { setMark } from '../../storage/marks';
 import { newId, saveMine } from '../../storage/recipes';
@@ -8,6 +8,7 @@ import { resizePhoto } from '../photo';
 import { useRecipes } from '../useRecipes';
 
 const CATEGORIES: Category[] = ['doces', 'bolos', 'massas', 'carnes', 'aves', 'peixes', 'arroz e feijão', 'salgadinhos', 'vegetariano', 'bebidas'];
+const UNIT_SUGGESTIONS = ['pessoas', 'docinhos', 'fatias', 'pedaços', 'unidades', 'copos', 'salgadinhos'];
 const DIETS: [keyof Diet, string][] = [
   ['vegetarian', 'Vegetariana'],
   ['lactoseFree', 'Sem lactose'],
@@ -37,6 +38,7 @@ type Fields = {
   markTry: boolean;
   minutes: string;
   servings: string;
+  servingsUnit: string;
   kind: RecipeKind;
   categories: Category[];
   diet: Diet;
@@ -54,7 +56,8 @@ function fieldsFrom(initial: Partial<Recipe>, leftovers: string[]): Fields {
     videoUrl: initial.videoUrl ?? '',
     markTry: false,
     minutes: initial.minutes ? String(initial.minutes) : '',
-    servings: initial.servings ? String(initial.servings) : '',
+    servings: initial.servings ? formatServings(initial.servings) : '',
+    servingsUnit: servingsUnitOf(initial),
     kind: initial.kind ?? 'salgado',
     categories: initial.categories ?? [],
     diet: initial.diet ?? { vegetarian: false, lactoseFree: false, glutenFree: false },
@@ -109,6 +112,7 @@ export function RecipeForm({
   const [markTry, setMarkTry] = useState(start.fields.markTry);
   const [minutes, setMinutes] = useState(start.fields.minutes);
   const [servings, setServings] = useState(start.fields.servings);
+  const [servingsUnit, setServingsUnit] = useState(start.fields.servingsUnit);
   const [kind, setKind] = useState<RecipeKind>(start.fields.kind);
   const [categories, setCategories] = useState<Category[]>(start.fields.categories);
   const [diet, setDiet] = useState<Diet>(start.fields.diet);
@@ -121,7 +125,7 @@ export function RecipeForm({
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const serialized = JSON.stringify(
-    { name, ingredients, steps, videoUrl, markTry, minutes, servings, kind, categories, diet, notes, leftoverText } satisfies Fields,
+    { name, ingredients, steps, videoUrl, markTry, minutes, servings, servingsUnit, kind, categories, diet, notes, leftoverText } satisfies Fields,
   );
   const dirty = serialized !== baseline || photo !== initial.photo;
 
@@ -146,13 +150,15 @@ export function RecipeForm({
     const recipe: Recipe = {
       id: initial.id ?? newId(),
       source: 'mine',
-      originId: initial.originId,
+      // Receita pronta editada mantém o id: favorita, compras e links continuam valendo.
+      originId: initial.source === 'catalog' ? initial.id : initial.originId,
       name: name.trim(),
       kind,
       categories,
       diet,
       minutes: readNumber(minutes),
       servings: readNumber(servings),
+      servingsUnit: servingsUnit.trim().toLowerCase() || DEFAULT_SERVINGS_UNIT,
       ingredients: readIngredients(ingredients, initial.ingredients ?? []),
       steps: parseSteps(steps),
       notes: [notes.trim(), leftoverText.trim()].filter(Boolean).join('\n'),
@@ -227,6 +233,20 @@ export function RecipeForm({
         <span>Link do vídeo (opcional)</span>
         <input type="url" inputMode="url" value={videoUrl} onChange={(event) => setVideoUrl(event.target.value)} placeholder="Instagram ou TikTok" />
       </label>
+      <div className="form-columns">
+        <label className="field">
+          <span>Quanto rende</span>
+          <input inputMode="decimal" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="Ex.: 4 ou 1,5" />
+        </label>
+        <label className="field">
+          <span>Unidade, no plural</span>
+          <input list="servings-units" value={servingsUnit} onChange={(event) => setServingsUnit(event.target.value)} placeholder="pessoas, docinhos, fatias" />
+          <datalist id="servings-units">
+            {UNIT_SUGGESTIONS.map((unit) => <option key={unit} value={unit} />)}
+          </datalist>
+        </label>
+      </div>
+      <p className="muted small">Serve 4 pessoas, rende 20 docinhos, rende 12 fatias. Com isso preenchido, dá para ajustar as quantidades na receita.</p>
       {!isEditing && (
         <label className="check">
           <input type="checkbox" checked={markTry} onChange={(event) => setMarkTry(event.target.checked)} />
@@ -236,21 +256,16 @@ export function RecipeForm({
       <details className="filters">
         <summary>Mais detalhes (opcional)</summary>
         <div className="stack">
-          <div className="form-columns">
-            <label className="field">
-              <span>Tempo de preparo em minutos</span>
-              <input inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>Porções</span>
-              <input inputMode="numeric" value={servings} onChange={(event) => setServings(event.target.value)} />
-            </label>
-          </div>
+          <label className="field">
+            <span>Tempo de preparo em minutos</span>
+            <input inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} />
+          </label>
           <label className="field">
             <span>Tipo</span>
             <select value={kind} onChange={(event) => setKind(event.target.value as RecipeKind)}>
               <option value="salgado">Salgado</option>
               <option value="doce">Doce</option>
+              <option value="ambos">Doce e salgado</option>
             </select>
           </label>
           <fieldset className="checks">

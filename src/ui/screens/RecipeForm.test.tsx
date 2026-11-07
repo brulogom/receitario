@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { catalog } from '../../catalog';
 import { listMarks } from '../../storage/marks';
 import { getMine, listMine, saveMine } from '../../storage/recipes';
 import { aRecipe } from '../../storage/testRecipe';
@@ -41,9 +42,33 @@ test('separa ingredientes e passos, um por linha', async () => {
   expect(saved.steps).toEqual(['Misture', 'Asse por 30 minutos']);
 });
 
-test('tempo, porções, categoria, foto e anotações ficam recolhidos', () => {
+test('tempo, categoria, foto e anotações ficam recolhidos; quanto rende fica à vista', () => {
   renderScreen(<RecipeForm />);
-  expect(screen.getByText('Mais detalhes (opcional)').closest('details')).not.toHaveAttribute('open');
+  const details = screen.getByText('Mais detalhes (opcional)').closest('details');
+  expect(details).not.toHaveAttribute('open');
+  expect(details).not.toContainElement(screen.getByLabelText('Quanto rende'));
+});
+
+test('aceita rendimento decimal e a unidade escolhida', async () => {
+  renderScreen(<RecipeForm />);
+  await userEvent.type(screen.getByLabelText('Nome'), 'Crepe');
+  await userEvent.type(screen.getByLabelText('Quanto rende'), '1,5');
+  fireEvent.change(screen.getByLabelText('Unidade, no plural'), { target: { value: 'Crepes' } });
+  fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'ambos' } });
+  await save();
+  await waitFor(async () => expect(await listMine()).toHaveLength(1));
+  const [saved] = await listMine();
+  expect(saved).toMatchObject({ servings: 1.5, servingsUnit: 'crepes', kind: 'ambos' });
+});
+
+test('editar receita pronta salva por cima com o mesmo id, sem mudar o catálogo', async () => {
+  const original = catalog.find((recipe) => recipe.id === 'brigadeiro')!;
+  renderScreen(<RecipeForm initial={original} />);
+  fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Meu brigadeiro' } });
+  await save();
+  await waitFor(async () => expect(await getMine('brigadeiro')).toBeDefined());
+  expect(await getMine('brigadeiro')).toMatchObject({ name: 'Meu brigadeiro', source: 'mine', originId: 'brigadeiro', servingsUnit: 'docinhos' });
+  expect(original.name).toBe('Brigadeiro de panela');
 });
 
 test('marcar Quero testar ao salvar', async () => {
@@ -150,7 +175,7 @@ test('não reescreve porções quando a pessoa limpa o campo', async () => {
   await saveMine(aRecipe({ servings: 4 }));
   const recipe = await getMine('r1');
   renderScreen(<RecipeForm initial={recipe} />);
-  fireEvent.change(screen.getByLabelText('Porções'), { target: { value: '' } });
+  fireEvent.change(screen.getByLabelText('Quanto rende'), { target: { value: '' } });
   await save();
   await waitFor(async () => expect((await getMine('r1'))?.servings).toBeNull());
 });

@@ -1,4 +1,43 @@
-import type { Ingredient } from './types';
+import type { Ingredient, Recipe } from './types';
+
+export const DEFAULT_SERVINGS_UNIT = 'pessoas';
+
+export function servingsUnitOf(recipe: Pick<Recipe, 'servingsUnit'>): string {
+  return recipe.servingsUnit?.trim() || DEFAULT_SERVINGS_UNIT;
+}
+
+/** Meia pessoa faz sentido ao dividir uma receita; meio docinho, não. */
+export function servingsStep(unit: string): number {
+  return unit === DEFAULT_SERVINGS_UNIT ? 0.5 : 1;
+}
+
+export function servingsVerb(unit: string): string {
+  return unit === DEFAULT_SERVINGS_UNIT ? 'Serve' : 'Rende';
+}
+
+export function formatServings(servings: number): string {
+  return String(Math.round(servings * 100) / 100).replace('.', ',');
+}
+
+function singularWord(word: string): string {
+  if (word.endsWith('ães')) return `${word.slice(0, -3)}ão`;
+  if (word.endsWith('ns')) return `${word.slice(0, -2)}m`;
+  if (/[rz]es$/.test(word)) return word.slice(0, -2);
+  return word.replace(/s$/, '');
+}
+
+/** Abaixo de 2 o português usa o singular: "1,5 pessoa", "1 fatia". */
+export function unitLabel(unit: string, servings: number): string {
+  if (servings >= 2) return unit;
+  const [first, ...rest] = unit.split(' ');
+  return [singularWord(first), ...rest].join(' ');
+}
+
+export function servingsText(recipe: Pick<Recipe, 'servings' | 'servingsUnit'>): string {
+  if (!recipe.servings) return '';
+  const unit = servingsUnitOf(recipe);
+  return `${servingsVerb(unit)} ${formatServings(recipe.servings)} ${unitLabel(unit, recipe.servings)}`;
+}
 
 const FRACTIONS: [number, string][] = [
   [0.25, '¼'],

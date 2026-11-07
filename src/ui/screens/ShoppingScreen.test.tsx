@@ -31,11 +31,12 @@ test('itens marcados continuam marcados ao reabrir', async () => {
   expect(await screen.findByLabelText('2 ovos')).toBeChecked();
 });
 
-test('mudar as porções na lista recalcula', async () => {
+test('mudar as pessoas na lista recalcula, de meia em meia', async () => {
   await twoRecipes();
   renderScreen(<ShoppingScreen />);
   await screen.findByLabelText('3 xícaras de açúcar');
-  await userEvent.click(screen.getByRole('button', { name: 'Mais porções de Receita B' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Mais pessoas de Receita B' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Mais pessoas de Receita B' }));
   expect(await screen.findByLabelText('3 ½ xícaras de açúcar')).toBeInTheDocument();
 });
 

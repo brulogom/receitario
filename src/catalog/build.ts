@@ -21,6 +21,8 @@ type Definition = {
   diet?: string;
   minutes: number;
   servings: number;
+  /** O que `servings` conta, no plural. Sem valor, conta pessoas. */
+  servingsUnit?: string;
   ingredients: Ingredient[];
   steps: string[];
 };
@@ -36,6 +38,7 @@ export function recipe(def: Definition): Recipe {
     diet: { vegetarian: diet.includes('V'), lactoseFree: diet.includes('L'), glutenFree: diet.includes('G') },
     minutes: def.minutes,
     servings: def.servings,
+    servingsUnit: def.servingsUnit ?? 'pessoas',
     ingredients: def.ingredients,
     steps: def.steps,
     notes: '',

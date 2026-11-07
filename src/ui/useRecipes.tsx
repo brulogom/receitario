@@ -44,7 +44,12 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ all: [...mine, ...catalog], mine, favorites, tries, loaded, reload, toggle }),
+    () => {
+      // Receita pronta editada usa o mesmo id da original e toma o lugar dela.
+      const edited = new Set(mine.map((recipe) => recipe.id));
+      const all = [...mine, ...catalog.filter((recipe) => !edited.has(recipe.id))];
+      return { all, mine, favorites, tries, loaded, reload, toggle };
+    },
     [mine, favorites, tries, loaded, reload, toggle],
   );
   return <RecipesContext.Provider value={value}>{children}</RecipesContext.Provider>;

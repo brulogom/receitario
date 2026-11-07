@@ -65,7 +65,7 @@ Assim, Minhas Receitas fica reservada ao que você realmente sabe fazer.
 
 - **Modo cozinha:** mostra um passo por vez em letra grande e mantém a tela ligada
 - **Temporizadores:** você inicia a contagem de tempo na própria etapa da receita
-- **Ajuste de porções:** ao mudar de 4 para 6 porções, as quantidades são recalculadas
+- **Ajuste de rendimento:** cada receita diz o que rende ("Serve 4 pessoas", "Rende 20 docinhos", também com decimais como 1,5); ao mudar de 4 para 6, as quantidades são recalculadas
 
 ### 6. Lista de compras
 
@@ -76,7 +76,7 @@ Você escolhe as receitas e o programa monta a lista de ingredientes, somando os
 1. Abra o programa e digite o que quer cozinhar, ou informe o que tem em casa.
 2. Abra uma receita para ver os ingredientes e o modo de preparo, e ajuste as porções se precisar.
 3. Clique em **Modo cozinha** para seguir o preparo passo a passo.
-4. Marque a receita como **Favorita** ou **Quero testar**, ou clique em **Salvar em Minhas Receitas** para guardar uma cópia e editá-la quando quiser.
+4. Marque a receita como **Favorita** ou **Quero testar**, clique em **Editar** para mudar a própria receita (dá para voltar à original), ou em **Salvar em Minhas Receitas** para guardar uma cópia separada.
 5. Para registrar uma receita que você já sabe, vá em **Minhas Receitas > Nova receita** e digite ou cole o texto.
 
 ## Propostas técnicas

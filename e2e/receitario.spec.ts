@@ -10,7 +10,7 @@ test('buscar, abrir, ajustar porções e entrar no modo cozinha', async ({ page 
   await page.getByRole('link', { name: /Bolo de fubá/ }).click();
   await expect(page.getByRole('heading', { name: 'Bolo de fubá' })).toBeVisible();
   await expect(page.getByText('3 ovos')).toBeVisible();
-  for (let i = 0; i < 12; i++) await page.getByRole('button', { name: 'Mais porções' }).click();
+  for (let i = 0; i < 12; i++) await page.getByRole('button', { name: 'Mais fatias' }).click();
   await expect(page.getByText('6 ovos')).toBeVisible();
   await page.getByRole('link', { name: 'Modo cozinha' }).click();
   await expect(page.getByText('Passo 1 de 4')).toBeVisible();
@@ -119,4 +119,30 @@ test('Compras soma ingredientes de duas receitas', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Tirar das compras' })).toBeVisible();
   await page.goto('./#/compras');
   await expect(page.getByLabel('2 latas de leite condensado')).toBeVisible();
+});
+
+test('editar receita pronta substitui a original e dá para voltar', async ({ page }, testInfo) => {
+  await page.goto('./#/receita/brigadeiro');
+  await expect(page.locator('p', { hasText: 'Rende 20 docinhos' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('receita.png'), fullPage: true });
+  await page.getByRole('link', { name: 'Editar' }).click();
+  await page.getByLabel('Nome').fill('Brigadeiro da casa');
+  await page.getByText('Mais detalhes (opcional)').click();
+  await page.getByLabel('Tipo').selectOption('ambos');
+  await page.screenshot({ path: testInfo.outputPath('formulario.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByRole('heading', { name: 'Brigadeiro da casa' })).toBeVisible();
+  await expect(page.locator('article .tag', { hasText: 'Editada por mim' })).toBeVisible();
+
+  await page.goto('./#/buscar');
+  await page.getByLabel('O que você quer cozinhar?').fill('brigadeiro');
+  await expect(page.getByRole('link', { name: /Brigadeiro da casa/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Brigadeiro de panela/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Salgados' }).click();
+  await expect(page.getByRole('link', { name: /Brigadeiro da casa/ })).toBeVisible();
+
+  await page.getByRole('link', { name: /Brigadeiro da casa/ }).click();
+  await page.getByRole('button', { name: 'Voltar à original' }).click();
+  await page.getByRole('button', { name: 'Sim, voltar à original' }).click();
+  await expect(page.getByRole('heading', { name: 'Brigadeiro de panela' })).toBeVisible();
 });

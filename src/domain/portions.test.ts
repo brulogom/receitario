@@ -1,4 +1,4 @@
-import { formatIngredient, formatQuantity, scaleQuantity } from './portions';
+import { formatIngredient, formatQuantity, scaleQuantity, servingsText } from './portions';
 
 test('scaleQuantity recalcula pela proporção de porções', () => {
   expect(scaleQuantity(2, 4, 6)).toBe(3);
@@ -37,4 +37,16 @@ test('ingrediente sem quantidade não é recalculado', () => {
 
 test('kg e g não mudam no plural', () => {
   expect(formatIngredient({ quantity: 500, unit: 'g', name: 'feijão preto' })).toBe('500 g de feijão preto');
+});
+
+test.each([
+  [{ servings: 4, servingsUnit: undefined }, 'Serve 4 pessoas'],
+  [{ servings: 1.5, servingsUnit: 'pessoas' }, 'Serve 1,5 pessoa'],
+  [{ servings: 20, servingsUnit: 'docinhos' }, 'Rende 20 docinhos'],
+  [{ servings: 1, servingsUnit: 'fatias' }, 'Rende 1 fatia'],
+  [{ servings: 1, servingsUnit: 'pães de queijo' }, 'Rende 1 pão de queijo'],
+  [{ servings: 1, servingsUnit: 'quindins' }, 'Rende 1 quindim'],
+  [{ servings: null, servingsUnit: 'fatias' }, ''],
+])('servingsText de %o', (recipe, expected) => {
+  expect(servingsText(recipe)).toBe(expected);
 });

@@ -83,6 +83,7 @@ input[type='checkbox'] { width: 22px; height: 22px; flex-shrink: 0; accent-color
 .art svg { width: 55%; height: 55%; }
 .art.doce { background: var(--sweet); }
 .art.salgado { background: var(--savory); }
+.art.ambos { background: linear-gradient(135deg, var(--sweet) 50%, var(--savory) 50%); }
 .art.large { width: 100%; height: 150px; }
 .art.large svg { width: 72px; height: 72px; }
 
@@ -90,7 +91,7 @@ input[type='checkbox'] { width: 22px; height: 22px; flex-shrink: 0; accent-color
 .recipe-head { display: flex; flex-direction: column; gap: 12px; }
 .recipe-head .tag { margin-bottom: 6px; }
 .recipe-columns { display: grid; gap: 20px; }
-.servings { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; }
+.servings { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; }
 .stepper { display: flex; align-items: center; gap: 10px; }
 .stepper button { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--ground); color: var(--ink); font: 700 22px var(--body); cursor: pointer; }
 .stepper button:disabled { opacity: 0.45; }

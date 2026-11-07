@@ -5,7 +5,7 @@ export type Ingredient = {
   base?: string;
 };
 
-export type RecipeKind = 'doce' | 'salgado';
+export type RecipeKind = 'doce' | 'salgado' | 'ambos';
 
 export type Category =
   | 'doces'
@@ -35,6 +35,8 @@ export type Recipe = {
   diet: Diet;
   minutes: number | null;
   servings: number | null;
+  /** O que `servings` conta, no plural: "pessoas", "docinhos", "fatias". Sem valor, conta pessoas. */
+  servingsUnit?: string;
   ingredients: Ingredient[];
   steps: string[];
   notes: string;

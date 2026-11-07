@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { formatIngredient } from '../../domain/portions';
+import { formatIngredient, formatServings, servingsStep, servingsUnitOf, servingsVerb, unitLabel } from '../../domain/portions';
 import { isHttpUrl } from '../../domain/text';
-import { copyFromCatalog, deleteMine } from '../../storage/recipes';
+import { copyFromCatalog, deleteMine, discardEdits } from '../../storage/recipes';
 import { getShopping, toggleShoppingRecipe } from '../../storage/shopping';
 import { RecipeArt } from '../RecipeArt';
-import { recipeMeta } from '../RecipeRow';
+import { isEditedCatalog, recipeMeta, recipeTag } from '../RecipeRow';
 import { useRecipes } from '../useRecipes';
 
 export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHref?: string }) {
@@ -31,6 +31,9 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
 
   const factor = servings && recipe.servings ? servings / recipe.servings : 1;
   const isMine = recipe.source === 'mine';
+  const isEdited = isEditedCatalog(recipe);
+  const unit = servingsUnitOf(recipe);
+  const step = servingsStep(unit);
   const isFavorite = favorites.includes(id);
   const isTry = tries.includes(id);
   const canCook = recipe.steps.length > 0;
@@ -47,13 +50,20 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
     window.location.hash = '#/minhas';
   };
 
+  const backToOriginal = async () => {
+    await discardEdits(id);
+    await reload();
+    setServings(null);
+    setConfirming(false);
+  };
+
   return (
     <article className="stack recipe">
       <a className="back" href={backHref}>Voltar</a>
       <div className="recipe-head">
         <RecipeArt recipe={recipe} large />
         <div>
-          {isMine && <span className="tag">Minha receita</span>}
+          {isMine && <span className="tag">{recipeTag(recipe)}</span>}
           <h1>{recipe.name}</h1>
           <p className="muted">{recipeMeta(recipe)}</p>
         </div>
@@ -78,24 +88,32 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
         >
           {inShopping ? 'Tirar das compras' : 'Adicionar às compras'}
         </button>
+        <a className="button" href={`#/editar/${id}`}>Editar</a>
         {!isMine && (
           <button type="button" className="button" onClick={() => void saveCopy()}>Salvar em Minhas Receitas</button>
         )}
         {isMine && (
           <>
-            <a className="button" href={`#/editar/${id}`}>Editar</a>
             <a className="button" href={`#/historico/${id}`}>Histórico</a>
-            <button type="button" className="button danger" onClick={() => setConfirming(true)}>Excluir</button>
+            <button type="button" className="button danger" onClick={() => setConfirming(true)}>
+              {isEdited ? 'Voltar à original' : 'Excluir'}
+            </button>
           </>
         )}
       </div>
       {!canCook && <p className="muted small">Adicione o modo de preparo para usar o Modo cozinha.</p>}
 
       {confirming && (
-        <div className="confirm" role="alertdialog" aria-label="Confirmar exclusão">
-          <p>Excluir “{recipe.name}” e todo o histórico? Isso não pode ser desfeito.</p>
+        <div className="confirm" role="alertdialog" aria-label={isEdited ? 'Confirmar volta à original' : 'Confirmar exclusão'}>
+          <p>
+            {isEdited
+              ? `Voltar “${recipe.name}” à versão original? Suas alterações e o histórico serão perdidos.`
+              : `Excluir “${recipe.name}” e todo o histórico? Isso não pode ser desfeito.`}
+          </p>
           <div className="actions">
-            <button type="button" className="button danger-solid" onClick={() => void remove()}>Sim, excluir</button>
+            <button type="button" className="button danger-solid" onClick={() => void (isEdited ? backToOriginal() : remove())}>
+              {isEdited ? 'Sim, voltar à original' : 'Sim, excluir'}
+            </button>
             <button type="button" className="button" onClick={() => setConfirming(false)}>Cancelar</button>
           </div>
         </div>
@@ -106,15 +124,18 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
           <h2>Ingredientes</h2>
           {recipe.servings && servings ? (
             <div className="servings">
-              <strong>Porções</strong>
+              <strong>{servingsVerb(unit)}</strong>
               <div className="stepper">
-                <button type="button" aria-label="Menos porções" disabled={servings <= 1} onClick={() => setServings(servings - 1)}>−</button>
-                <output>{servings}</output>
-                <button type="button" aria-label="Mais porções" onClick={() => setServings(servings + 1)}>+</button>
+                <button type="button" aria-label={`Menos ${unit}`} disabled={servings <= step} onClick={() => setServings(servings - step)}>−</button>
+                <output>{formatServings(servings)}</output>
+                <button type="button" aria-label={`Mais ${unit}`} onClick={() => setServings(servings + step)}>+</button>
               </div>
+              <strong>{unitLabel(unit, servings)}</strong>
             </div>
           ) : (
-            <p className="muted small">Informe as porções ao editar a receita para poder ajustar as quantidades.</p>
+            <p className="muted small">
+              <a href={`#/editar/${id}`}>Informe quanto a receita rende</a> para poder ajustar as quantidades.
+            </p>
           )}
           {recipe.ingredients.length === 0 && <p className="muted">Nenhum ingrediente informado.</p>}
           <ul className="ingredients">
