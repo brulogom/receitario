@@ -5,7 +5,7 @@ export type Ingredient = {
   base?: string;
 };
 
-export type RecipeKind = 'doce' | 'salgado' | 'ambos';
+export type RecipeKind = 'doce' | 'salgado' | 'ambos' | 'indefinido';
 
 export type Category =
   | 'doces'

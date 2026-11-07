@@ -43,7 +43,8 @@ export function SearchScreen() {
 
   const search = useMemo(() => createSearch(all), [all]);
   const results = useMemo(
-    () => search(query, { categories, diet, maxMinutes }).filter((recipe) => !kind || recipe.kind === kind || recipe.kind === 'ambos'),
+    () => search(query, { categories, diet, maxMinutes })// Receita sem tipo aparece nos dois filtros para não sumir da busca.
+      .filter((recipe) => !kind || recipe.kind === kind || recipe.kind === 'ambos' || recipe.kind === 'indefinido'),
     [search, query, categories, diet, maxMinutes, kind],
   );
   const activeFilters = categories.length + diet.length + (maxMinutes ? 1 : 0);

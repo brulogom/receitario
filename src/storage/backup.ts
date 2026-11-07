@@ -89,7 +89,7 @@ function isRecipe(value: unknown): value is StoredRecipe {
     typeof r.id === 'string' &&
     r.source === 'mine' &&
     typeof r.name === 'string' &&
-    (r.kind === 'doce' || r.kind === 'salgado' || r.kind === 'ambos') &&
+    (r.kind === 'doce' || r.kind === 'salgado' || r.kind === 'ambos' || r.kind === 'indefinido') &&
     (r.servingsUnit === undefined || typeof r.servingsUnit === 'string') &&
     isStringList(r.categories) &&
     !!r.diet &&

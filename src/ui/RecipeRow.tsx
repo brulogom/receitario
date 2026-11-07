@@ -2,7 +2,7 @@ import { servingsText } from '../domain/portions';
 import type { Recipe, RecipeKind } from '../domain/types';
 import { RecipeArt } from './RecipeArt';
 
-const KIND_LABELS: Record<RecipeKind, string> = { doce: 'Doce', salgado: 'Salgado', ambos: 'Doce e salgado' };
+const KIND_LABELS: Record<RecipeKind, string> = { doce: 'Doce', salgado: 'Salgado', ambos: 'Doce e salgado', indefinido: '' };
 
 export function recipeMeta(recipe: Recipe): string {
   return [recipe.minutes ? `${recipe.minutes} min` : '', KIND_LABELS[recipe.kind], servingsText(recipe)].filter(Boolean).join(' · ');

@@ -40,3 +40,14 @@ test('sem resultado, explica o que fazer', async () => {
   await userEvent.type(await screen.findByLabelText('O que você quer cozinhar?'), 'xyzxyzxyz');
   expect(screen.getByText(/Nada encontrado/)).toBeInTheDocument();
 });
+
+test('receita sem tipo aparece nos dois filtros e não diz ser salgada', async () => {
+  await saveMine(aRecipe({ id: 'sem-tipo', name: 'Receita sem tipo', kind: 'indefinido', minutes: null, servings: null }));
+  renderScreen(<SearchScreen />);
+  const row = await screen.findByRole('link', { name: /Receita sem tipo/ });
+  expect(row).not.toHaveTextContent('Salgado');
+  await userEvent.click(screen.getByRole('button', { name: 'Doces' }));
+  expect(screen.getByRole('link', { name: /Receita sem tipo/ })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Salgados' }));
+  expect(screen.getByRole('link', { name: /Receita sem tipo/ })).toBeInTheDocument();
+});

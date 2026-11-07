@@ -58,7 +58,7 @@ function fieldsFrom(initial: Partial<Recipe>, leftovers: string[]): Fields {
     minutes: initial.minutes ? String(initial.minutes) : '',
     servings: initial.servings ? formatServings(initial.servings) : '',
     servingsUnit: servingsUnitOf(initial),
-    kind: initial.kind ?? 'salgado',
+    kind: initial.kind ?? 'indefinido',
     categories: initial.categories ?? [],
     diet: initial.diet ?? { vegetarian: false, lactoseFree: false, glutenFree: false },
     notes: initial.notes ?? '',
@@ -142,6 +142,10 @@ export function RecipeForm({
     event.preventDefault();
     if (!name.trim()) {
       setError('Dê um nome à receita para salvar.');
+      return;
+    }
+    if (servings.trim() && readNumber(servings) === null) {
+      setError('Em "Quanto rende", use um número só, como 4 ou 1,5.');
       return;
     }
     setSaving(true);
@@ -247,6 +251,15 @@ export function RecipeForm({
         </label>
       </div>
       <p className="muted small">Serve 4 pessoas, rende 20 docinhos, rende 12 fatias. Com isso preenchido, dá para ajustar as quantidades na receita.</p>
+      <label className="field">
+        <span>Tipo</span>
+        <select value={kind} onChange={(event) => setKind(event.target.value as RecipeKind)}>
+          <option value="indefinido">Não informado</option>
+          <option value="doce">Doce</option>
+          <option value="salgado">Salgado</option>
+          <option value="ambos">Doce e salgado</option>
+        </select>
+      </label>
       {!isEditing && (
         <label className="check">
           <input type="checkbox" checked={markTry} onChange={(event) => setMarkTry(event.target.checked)} />
@@ -259,14 +272,6 @@ export function RecipeForm({
           <label className="field">
             <span>Tempo de preparo em minutos</span>
             <input inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Tipo</span>
-            <select value={kind} onChange={(event) => setKind(event.target.value as RecipeKind)}>
-              <option value="salgado">Salgado</option>
-              <option value="doce">Doce</option>
-              <option value="ambos">Doce e salgado</option>
-            </select>
           </label>
           <fieldset className="checks">
             <legend>Categorias</legend>

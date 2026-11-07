@@ -49,6 +49,27 @@ test('tempo, categoria, foto e anotações ficam recolhidos; quanto rende fica �
   expect(details).not.toContainElement(screen.getByLabelText('Quanto rende'));
 });
 
+test.each(['4 a 6', 'umas 4', '0'])('não salva nem descarta "Quanto rende" inválido: %s', async (value) => {
+  renderScreen(<RecipeForm />);
+  await userEvent.type(screen.getByLabelText('Nome'), 'Bolo');
+  await userEvent.type(screen.getByLabelText('Quanto rende'), value);
+  await save();
+  expect(screen.getByRole('alert')).toHaveTextContent('use um número só');
+  expect(screen.getByLabelText('Quanto rende')).toHaveValue(value);
+  expect(await listMine()).toEqual([]);
+});
+
+test('adição rápida não marca a receita como salgada; o tipo fica à vista', async () => {
+  renderScreen(<RecipeForm />);
+  const details = screen.getByText('Mais detalhes (opcional)').closest('details');
+  expect(details).not.toContainElement(screen.getByLabelText('Tipo'));
+  await userEvent.type(screen.getByLabelText('Nome'), 'Doce do vídeo');
+  await save();
+  await waitFor(async () => expect(await listMine()).toHaveLength(1));
+  const [saved] = await listMine();
+  expect(saved.kind).toBe('indefinido');
+});
+
 test('aceita rendimento decimal e a unidade escolhida', async () => {
   renderScreen(<RecipeForm />);
   await userEvent.type(screen.getByLabelText('Nome'), 'Crepe');
