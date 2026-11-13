@@ -72,6 +72,24 @@ Assim, Minhas Receitas fica reservada ao que você realmente sabe fazer.
 
 Você escolhe as receitas e o programa monta a lista de ingredientes, somando os que se repetem e permitindo marcar o que já tem em casa.
 
+A lista vem separada pelas seções do mercado (hortifrúti, carnes e peixes, ovos, frios e laticínios, padaria, mercearia, temperos, bebidas). Em **Arrumar seções** você muda a seção de um item, e o programa lembra da escolha.
+
+### 7. Planejar a semana
+
+- **Semana:** escolha a receita do almoço e do jantar de cada dia, dos próximos sete dias em diante, e ajuste o rendimento de cada uma
+- **Mandar para as compras:** um toque põe as receitas da semana na lista; a mesma receita em dois dias soma as quantidades
+- **Planejar** pela própria receita, escolhendo o dia e a refeição
+
+### 8. Organizar
+
+- **Fiz hoje:** registre quando fez a receita, com nota de 1 a 5 e um comentário. A receita mostra quantas vezes foi feita, a última vez e a nota média. Ao concluir o Modo cozinha, o programa já pergunta como ficou
+- **Etiquetas:** palavras livres como "Natal", "rápida" ou "da vó", que também servem de filtro e entram na busca
+- **Coleções:** junte receitas por ocasião, como Ceia de Natal ou Marmitas, na aba Salvas ou pela própria receita
+- **Tela inicial em grade com fotos**, com opção de lista, e o botão **Me surpreenda**, que sorteia uma receita entre as encontradas
+- **Fotos:** ponha ou troque a foto direto na receita, sem abrir a edição; ela aparece grande no topo da receita e nos cartões
+
+Tudo isso fica só no aparelho e vai junto no backup. Backups feitos antes destas mudanças continuam podendo ser importados.
+
 ## Como usar
 
 1. Abra o programa e digite o que quer cozinhar, ou informe o que tem em casa.

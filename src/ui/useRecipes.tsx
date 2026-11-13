@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { catalog } from '../catalog';
-import type { Recipe } from '../domain/types';
+import type { Collection, CookedEntry, Recipe } from '../domain/types';
+import { listCollections } from '../storage/collections';
+import { listCooked } from '../storage/cooked';
 import type { MarkKind } from '../storage/db';
 import { listMarks, toggleMark } from '../storage/marks';
 import { listMine } from '../storage/recipes';
@@ -10,6 +12,9 @@ type RecipesValue = {
   mine: Recipe[];
   favorites: string[];
   tries: string[];
+  /** Todas as vezes em que alguma receita foi feita. */
+  cooked: CookedEntry[];
+  collections: Collection[];
   loaded: boolean;
   reload: () => Promise<void>;
   toggle: (recipeId: string, kind: MarkKind) => Promise<void>;
@@ -21,13 +26,23 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
   const [mine, setMine] = useState<Recipe[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [tries, setTries] = useState<string[]>([]);
+  const [cooked, setCooked] = useState<CookedEntry[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   const reload = useCallback(async () => {
-    const [recipes, favoriteIds, tryIds] = await Promise.all([listMine(), listMarks('favorite'), listMarks('try')]);
+    const [recipes, favoriteIds, tryIds, cookedEntries, collectionList] = await Promise.all([
+      listMine(),
+      listMarks('favorite'),
+      listMarks('try'),
+      listCooked(),
+      listCollections(),
+    ]);
     setMine(recipes);
     setFavorites(favoriteIds);
     setTries(tryIds);
+    setCooked(cookedEntries);
+    setCollections(collectionList);
     setLoaded(true);
   }, []);
 
@@ -48,9 +63,9 @@ export function RecipesProvider({ children }: { children: ReactNode }) {
       // Receita pronta editada usa o mesmo id da original e toma o lugar dela.
       const edited = new Set(mine.map((recipe) => recipe.id));
       const all = [...mine, ...catalog.filter((recipe) => !edited.has(recipe.id))];
-      return { all, mine, favorites, tries, loaded, reload, toggle };
+      return { all, mine, favorites, tries, cooked, collections, loaded, reload, toggle };
     },
-    [mine, favorites, tries, loaded, reload, toggle],
+    [mine, favorites, tries, cooked, collections, loaded, reload, toggle],
   );
   return <RecipesContext.Provider value={value}>{children}</RecipesContext.Provider>;
 }

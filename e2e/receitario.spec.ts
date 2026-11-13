@@ -41,7 +41,7 @@ test('buscar, abrir, ajustar porções e entrar no modo cozinha', async ({ page 
   const search = page.getByLabel('O que você quer cozinhar?');
   await expect(search).toBeFocused();
   await search.fill('acucar fuba');
-  await page.locator('.list').getByRole('link', { name: /Bolo de fubá/ }).click();
+  await page.locator('.grid').getByRole('link', { name: /Bolo de fubá/ }).click();
   const recipe = page.locator('article');
   await expect(recipe.getByRole('heading', { name: 'Bolo de fubá' })).toBeVisible();
   await expect(recipe.getByText('3 ovos')).toBeVisible();
@@ -101,7 +101,7 @@ test('funciona sem internet depois da primeira visita', async ({ page, context }
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, { timeout: 15_000 }).catch(() => page.reload());
   await context.setOffline(true);
   await page.reload();
-  await expect(page.locator('.list').getByRole('link', { name: /Bolo de fubá/ })).toBeVisible();
+  await expect(page.locator('.grid').getByRole('link', { name: /Bolo de fubá/ })).toBeVisible();
   await page.goto('./#/livro');
   await page.getByLabel('Arquivo do livro (PDF com texto ou TXT)').setInputFiles('e2e/fixtures/livro-teste.pdf');
   await expect(page.getByRole('heading', { name: '1 receita encontrada' })).toBeVisible();
@@ -109,7 +109,7 @@ test('funciona sem internet depois da primeira visita', async ({ page, context }
 
 test('sem rolagem horizontal em nenhuma aba', async ({ page }) => {
   const id = await createRecipe(page, { ...fuba, name: 'Escondidinho de carne-seca com nome bem comprido para testar a largura' });
-  for (const route of ['buscar', 'casa', 'minhas', 'salvas', 'compras', `receita/${id}`, 'nova', 'importar', 'livro', `cozinha/${id}/`]) {
+  for (const route of ['buscar', 'casa', 'minhas', 'salvas', 'semana', 'compras', `receita/${id}`, 'nova', 'importar', 'livro', `cozinha/${id}/`]) {
     await page.goto(`./#/${route}`);
     await page.waitForTimeout(100);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -206,4 +206,37 @@ test('enviar livro em PDF: lê, confere e salva com a fonte', async ({ page }, t
   await expect(page.getByText('Fonte: Livro de Teste, página 1 do arquivo')).toBeVisible();
   await expect(page.locator('article p', { hasText: 'Rende 12 fatias' })).toBeVisible();
   await expect(page.locator('article .ingredients').getByText('3 limoes')).toBeVisible();
+});
+
+test('planejar a semana, mandar para as compras por seção, registrar que fez e guardar em coleção', async ({ page }) => {
+  const id = await createRecipe(page, fuba);
+  await page.goto('./#/semana');
+  await page.getByRole('button', { name: 'Adicionar receita: Hoje, almoço' }).click();
+  await page.getByLabel('Buscar receita para Hoje, almoço').fill('fuba');
+  await page.getByRole('button', { name: 'Bolo de fubá' }).click();
+  await expect(page.getByRole('link', { name: 'Bolo de fubá' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mandar a semana para as compras' }).click();
+  await page.getByRole('link', { name: 'Abrir a lista' }).click();
+  await expect(page.getByRole('heading', { name: 'Ovos, frios e laticínios' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mercearia' })).toBeVisible();
+  await expect(page.getByLabel('3 ovos')).toBeVisible();
+
+  await page.goto(`./#/receita/${id}`);
+  await page.getByRole('button', { name: 'Fiz hoje' }).click();
+  await page.getByRole('button', { name: 'Nota 5 de 5' }).click();
+  await page.getByRole('button', { name: 'Registrar' }).click();
+  await expect(page.getByText(/Feita 1 vez/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Coleções' }).click();
+  await page.getByLabel('Nome da nova coleção').fill('Lanche da tarde');
+  await page.getByRole('button', { name: 'Criar' }).click();
+  await expect(page.getByRole('button', { name: 'Coleções (1)' })).toBeVisible();
+  await page.goto('./#/salvas');
+  await page.getByRole('link', { name: /Lanche da tarde/ }).click();
+  await expect(page.getByRole('link', { name: /Bolo de fubá/ })).toBeVisible();
+
+  // Tudo continua lá depois de recarregar.
+  await page.goto(`./#/receita/${id}`);
+  await page.reload();
+  await expect(page.getByText(/Feita 1 vez/)).toBeVisible();
 });

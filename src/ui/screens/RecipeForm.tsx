@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { parseIngredientLine, parseSteps } from '../../domain/parser';
 import { DEFAULT_SERVINGS_UNIT, formatIngredient, formatServings, servingsUnitOf } from '../../domain/portions';
+import { allTags, parseTags, sameTag } from '../../domain/tags';
 import type { Category, Diet, Ingredient, Recipe, RecipeKind } from '../../domain/types';
 import { setMark } from '../../storage/marks';
 import { newId, saveMine } from '../../storage/recipes';
@@ -44,6 +45,7 @@ type Fields = {
   diet: Diet;
   notes: string;
   leftoverText: string;
+  tags: string;
 };
 
 const DRAFT_KEY = 'receitario.rascunho';
@@ -63,6 +65,7 @@ function fieldsFrom(initial: Partial<Recipe>, leftovers: string[]): Fields {
     diet: initial.diet ?? { vegetarian: false, lactoseFree: false, glutenFree: false },
     notes: initial.notes ?? '',
     leftoverText: leftovers.join('\n'),
+    tags: (initial.tags ?? []).join(', '),
   };
 }
 
@@ -96,7 +99,7 @@ export function RecipeForm({
   /** Guarda o que foi digitado: o Android pode fechar o aplicativo enquanto a pessoa volta ao vídeo. */
   draft?: boolean;
 }) {
-  const { reload } = useRecipes();
+  const { reload, all } = useRecipes();
   const isEditing = Boolean(initial.id);
   const [start] = useState(() => {
     const received = fieldsFrom(initial, leftovers);
@@ -119,15 +122,37 @@ export function RecipeForm({
   const [notes, setNotes] = useState(start.fields.notes);
   const [leftoverText, setLeftoverText] = useState(start.fields.leftoverText);
   const [showLeftovers] = useState(Boolean(start.fields.leftoverText));
+  const [tags, setTags] = useState(start.fields.tags);
   const [photo, setPhoto] = useState<Blob | undefined>(initial.photo);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const serialized = JSON.stringify(
-    { name, ingredients, steps, videoUrl, markTry, minutes, servings, servingsUnit, kind, categories, diet, notes, leftoverText } satisfies Fields,
+    { name, ingredients, steps, videoUrl, markTry, minutes, servings, servingsUnit, kind, categories, diet, notes, leftoverText, tags } satisfies Fields,
   );
   const dirty = serialized !== baseline || photo !== initial.photo;
+  const chosenTags = parseTags(tags);
+  const suggestions = allTags(all).filter((tag) => !chosenTags.some((own) => sameTag(own, tag))).slice(0, 12);
+
+  useEffect(() => {
+    if (!photo) {
+      setPhotoUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(photo);
+    setPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
+
+  const choosePhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setPreparingPhoto(true);
+    setPhoto(await resizePhoto(file));
+    setPreparingPhoto(false);
+  };
 
   useEffect(() => {
     if (draft) writeDraft(serialized === BLANK ? null : serialized);
@@ -168,6 +193,7 @@ export function RecipeForm({
       notes: [notes.trim(), leftoverText.trim()].filter(Boolean).join('\n'),
       videoUrl: videoUrl.trim(),
       book: initial.book,
+      tags: chosenTags.length ? chosenTags : undefined,
       photo,
       createdAt: initial.createdAt ?? now,
       updatedAt: now,
@@ -197,7 +223,9 @@ export function RecipeForm({
         <h1>{isEditing ? 'Editar receita' : 'Nova receita'}</h1>
         <div className="actions">
           <button type="button" className="button" onClick={() => (dirty ? setConfirmingCancel(true) : leave())}>Cancelar</button>
-          <button type="submit" className="button primary" disabled={saving}>Salvar</button>
+          <button type="submit" className="button primary" disabled={saving || preparingPhoto}>
+            {preparingPhoto ? 'Preparando foto…' : 'Salvar'}
+          </button>
         </div>
       </div>
       {confirmingCancel && (
@@ -261,6 +289,43 @@ export function RecipeForm({
           <option value="ambos">Doce e salgado</option>
         </select>
       </label>
+      <div className="field">
+        <label htmlFor="recipe-tags">Etiquetas (opcional)</label>
+        <input id="recipe-tags" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Separe por vírgula: Natal, rápida, da vó" />
+        {suggestions.length > 0 && (
+          <div className="chips wrap" role="group" aria-label="Etiquetas que você já usa">
+            {suggestions.map((tag) => (
+              <button type="button" key={tag} className="chip" onClick={() => setTags([...chosenTags, tag].join(', '))}>
+                + {tag}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="field">
+        <span>Foto</span>
+        {photoUrl && <img className="form-photo" src={photoUrl} alt="Foto da receita" />}
+        <div className="actions">
+          <label className="button">
+            {preparingPhoto ? 'Preparando foto…' : photo ? 'Trocar foto' : 'Pôr foto'}
+            <input
+              className="visually-hidden"
+              type="file"
+              accept="image/*"
+              aria-label="Foto"
+              disabled={preparingPhoto}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                void choosePhoto(file);
+              }}
+            />
+          </label>
+          {photo && (
+            <button type="button" className="button" onClick={() => setPhoto(undefined)}>Tirar foto</button>
+          )}
+        </div>
+      </div>
       {!isEditing && (
         <label className="check">
           <input type="checkbox" checked={markTry} onChange={(event) => setMarkTry(event.target.checked)} />
@@ -298,17 +363,6 @@ export function RecipeForm({
               </label>
             ))}
           </fieldset>
-          <label className="field">
-            <span>Foto</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void resizePhoto(file).then(setPhoto);
-              }}
-            />
-          </label>
           <label className="field">
             <span>Anotações</span>
             <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Ex.: usar menos açúcar, assar 10 minutos a mais" />

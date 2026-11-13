@@ -55,7 +55,8 @@ export function CookScreen({ id, servings }: { id: string; servings?: number }) 
 
   const finish = () => {
     forget(stepKey);
-    window.location.hash = `#/receita/${id}`;
+    // Ao concluir, a receita abre já perguntando como ficou.
+    window.location.hash = `#/receita/${id}/fiz`;
   };
 
   return (

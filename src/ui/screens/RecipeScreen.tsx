@@ -1,16 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { cookedByRecipe, cookedSummary, cookedText, formatRating } from '../../domain/cooked';
+import { dateKey } from '../../domain/dates';
 import { formatIngredient, formatServings, servingsStep, servingsUnitOf, servingsVerb, unitLabel } from '../../domain/portions';
 import { isHttpUrl } from '../../domain/text';
-import { copyFromCatalog, deleteMine, discardEdits } from '../../storage/recipes';
+import { copyFromCatalog, deleteMine, discardEdits, saveMine } from '../../storage/recipes';
 import { getShopping, toggleShoppingRecipe } from '../../storage/shopping';
 import { forget, recall, remember } from '../cookMemory';
+import { resizePhoto } from '../photo';
 import { RecipeArt } from '../RecipeArt';
+import { CollectionsPanel, CookedForm, CookedHistory, PlanPanel, Stars } from '../RecipePanels';
 import { isEditedCatalog, recipeMeta, recipeTag } from '../RecipeRow';
 import { useRecipes } from '../useRecipes';
 
-export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHref?: string }) {
-  const { all, loaded, favorites, tries, toggle, reload } = useRecipes();
+type Panel = 'fiz' | 'plano' | 'colecoes' | null;
+
+export function RecipeScreen({ id, backHref = '#/buscar', openCooked = false }: { id: string; backHref?: string; openCooked?: boolean }) {
+  const { all, loaded, favorites, tries, cooked, collections, toggle, reload } = useRecipes();
   const recipe = all.find((item) => item.id === id);
+  const [panel, setPanel] = useState<Panel>(openCooked ? 'fiz' : null);
+  const [photoState, setPhotoState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [today] = useState(() => dateKey(new Date()));
+  const history = useMemo(() => cookedByRecipe(cooked).get(id) ?? [], [cooked, id]);
+  const summary = cookedSummary(history);
+  const inCollections = collections.filter((collection) => collection.recipeIds.includes(id)).length;
   const servingsKey = `receitario.cozinha.rendimento.${id}`;
   // Guarda sobre qual rendimento o ajuste foi feito: se a receita for editada, ele deixa de valer.
   const [chosen, setChosen] = useState(() => recall<{ base: number; value: number }>(servingsKey));
@@ -59,6 +71,29 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
     window.location.hash = '#/minhas';
   };
 
+  const changePhoto = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPhotoState('saving');
+    try {
+      // Receita pronta vira edição com o mesmo id, como no formulário.
+      const originId = recipe.source === 'catalog' ? recipe.id : recipe.originId;
+      await saveMine({ ...recipe, originId, photo: await resizePhoto(file) });
+      await reload();
+      setPhotoState('idle');
+    } catch {
+      setPhotoState('error');
+    }
+  };
+
+  const removePhoto = async () => {
+    await saveMine({ ...recipe, photo: undefined });
+    await reload();
+  };
+
+  const togglePanel = (next: Panel) => setPanel(panel === next ? null : next);
+
   const backToOriginal = async () => {
     await discardEdits(id);
     await reload();
@@ -70,12 +105,40 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
   return (
     <article className="stack recipe">
       <a className="back" href={backHref}>Voltar</a>
-      <div className="recipe-head">
+      <div className={recipe.photo ? 'recipe-head with-photo' : 'recipe-head'}>
         <RecipeArt recipe={recipe} large />
-        <div>
+        <div className="stack tight">
           {isMine && <span className="tag">{recipeTag(recipe)}</span>}
           <h1>{recipe.name}</h1>
           <p className="muted">{recipeMeta(recipe)}</p>
+          {summary.count > 0 && (
+            <p className="cooked-summary">
+              {summary.rating !== null && (
+                <>
+                  <Stars rating={summary.rating} /> <strong>{formatRating(summary.rating)}</strong>
+                  {' · '}
+                </>
+              )}
+              {cookedText(summary, today)}
+            </p>
+          )}
+          {recipe.tags && recipe.tags.length > 0 && (
+            <ul className="tag-list" aria-label="Etiquetas">
+              {recipe.tags.map((tag) => <li key={tag} className="tag-chip">{tag}</li>)}
+            </ul>
+          )}
+          <div className="actions">
+            <label className="button small">
+              {photoState === 'saving' ? 'Salvando foto…' : recipe.photo ? 'Trocar foto' : 'Pôr foto'}
+              <input className="visually-hidden" type="file" accept="image/*" disabled={photoState === 'saving'} onChange={(event) => void changePhoto(event)} />
+            </label>
+            {recipe.photo && isMine && (
+              <button type="button" className="button small" onClick={() => void removePhoto()}>Tirar foto</button>
+            )}
+          </div>
+          {photoState === 'error' && (
+            <p className="error" role="alert">Não foi possível guardar a foto. Verifique o espaço livre no aparelho e tente de novo.</p>
+          )}
           {recipe.book && (
             <p className="muted small">
               Fonte: {recipe.book.title}
@@ -91,18 +154,27 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
         ) : (
           <button type="button" className="button primary" disabled>Modo cozinha</button>
         )}
-        <button type="button" className="button" aria-pressed={isFavorite} onClick={() => void toggle(id, 'favorite')}>
-          {isFavorite ? 'Favorita' : 'Favoritar'}
-        </button>
-        <button type="button" className="button" aria-pressed={isTry} onClick={() => void toggle(id, 'try')}>
-          {isTry ? 'Vou testar' : 'Quero testar'}
-        </button>
+        <button type="button" className="button" aria-expanded={panel === 'fiz'} onClick={() => togglePanel('fiz')}>Fiz hoje</button>
+        <button type="button" className="button" aria-expanded={panel === 'plano'} onClick={() => togglePanel('plano')}>Planejar</button>
         <button
           type="button"
           className="button"
           onClick={() => void toggleShoppingRecipe(id, servings).then(setInShopping)}
         >
           {inShopping ? 'Tirar das compras' : 'Adicionar às compras'}
+        </button>
+      </div>
+      {panel === 'fiz' && <CookedForm recipe={recipe} onDone={() => setPanel(null)} />}
+      {panel === 'plano' && <PlanPanel recipe={recipe} servings={servings} onDone={() => setPanel(null)} />}
+      <div className="actions">
+        <button type="button" className="button" aria-pressed={isFavorite} onClick={() => void toggle(id, 'favorite')}>
+          {isFavorite ? 'Favorita' : 'Favoritar'}
+        </button>
+        <button type="button" className="button" aria-pressed={isTry} onClick={() => void toggle(id, 'try')}>
+          {isTry ? 'Vou testar' : 'Quero testar'}
+        </button>
+        <button type="button" className="button" aria-expanded={panel === 'colecoes'} onClick={() => togglePanel('colecoes')}>
+          {inCollections ? `Coleções (${inCollections})` : 'Coleções'}
         </button>
         <a className="button" href={`#/editar/${id}`}>Editar</a>
         {!isMine && (
@@ -117,6 +189,7 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
           </>
         )}
       </div>
+      {panel === 'colecoes' && <CollectionsPanel recipe={recipe} onDone={() => setPanel(null)} />}
       {!canCook && <p className="muted small">Adicione o modo de preparo para usar o Modo cozinha.</p>}
 
       {confirming && (
@@ -186,6 +259,7 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
           )}
         </section>
       </div>
+      <CookedHistory entries={history} />
     </article>
   );
 }

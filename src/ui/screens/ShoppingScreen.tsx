@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AISLES, aisleOf, isAisle, type Aisle } from '../../domain/aisles';
 import { formatServings, servingsStep, servingsUnitOf, unitLabel } from '../../domain/portions';
-import { buildShoppingList } from '../../domain/shopping';
+import { buildShoppingList, type ShoppingItem } from '../../domain/shopping';
 import type { Recipe } from '../../domain/types';
 import type { ShoppingState } from '../../storage/db';
 import { getShopping, setShopping } from '../../storage/shopping';
@@ -9,6 +10,7 @@ import { useRecipes } from '../useRecipes';
 export function ShoppingScreen() {
   const { all } = useRecipes();
   const [state, setState] = useState<ShoppingState | null>(null);
+  const [arranging, setArranging] = useState(false);
 
   useEffect(() => {
     void getShopping().then(setState);
@@ -22,6 +24,16 @@ export function ShoppingScreen() {
     [state, all],
   );
   const items = useMemo(() => buildShoppingList(selections), [selections]);
+  const groups = useMemo(() => {
+    const chosen = state?.sections ?? {};
+    const byAisle = new Map<Aisle, ShoppingItem[]>();
+    for (const item of items) {
+      const own = chosen[item.nameKey];
+      const aisle = isAisle(own) ? own : aisleOf(item.name);
+      byAisle.set(aisle, [...(byAisle.get(aisle) ?? []), item]);
+    }
+    return AISLES.filter(([aisle]) => byAisle.has(aisle)).map(([aisle, label]) => ({ aisle, label, items: byAisle.get(aisle)! }));
+  }, [items, state]);
 
   if (!state) return null;
 
@@ -36,6 +48,9 @@ export function ShoppingScreen() {
       selections: state.selections.map((selection) => (selection.recipeId === recipeId ? { ...selection, servings } : selection)),
     });
 
+  const moveItem = (item: ShoppingItem, aisle: Aisle) =>
+    update({ ...state, sections: { ...state.sections, [item.nameKey]: aisle } });
+
   const toggleItem = (key: string) =>
     update({
       ...state,
@@ -45,7 +60,11 @@ export function ShoppingScreen() {
   return (
     <div className="stack">
       <h1>Lista de compras</h1>
-      {selections.length === 0 && <p className="muted">Abra uma receita e toque em Adicionar às compras. Os ingredientes repetidos são somados aqui.</p>}
+      {selections.length === 0 && (
+        <p className="muted">
+          Abra uma receita e toque em Adicionar às compras, ou monte a <a href="#/semana">semana</a> e mande tudo de uma vez. Os ingredientes repetidos são somados aqui.
+        </p>
+      )}
       {selections.length > 0 && (
         <section className="stack">
           <h2>Receitas</h2>
@@ -78,16 +97,37 @@ export function ShoppingScreen() {
       )}
       {items.length > 0 && (
         <section className="stack">
-          <h2>Ingredientes</h2>
-          <p className="muted small">Marque o que você já tem em casa ou já comprou.</p>
-          <div>
-            {items.map((item) => (
-              <label className={state.checked.includes(item.key) ? 'shopping-item checked' : 'shopping-item'} key={item.key}>
-                <input type="checkbox" checked={state.checked.includes(item.key)} onChange={() => toggleItem(item.key)} />
-                <span>{item.label}</span>
-              </label>
-            ))}
+          <div className="form-head">
+            <h2>Ingredientes</h2>
+            <button type="button" className="button small" aria-pressed={arranging} onClick={() => setArranging(!arranging)}>
+              {arranging ? 'Pronto' : 'Arrumar seções'}
+            </button>
           </div>
+          <p className="muted small">
+            {arranging
+              ? 'Escolha a seção de cada item. O Receitário lembra da escolha nas próximas listas.'
+              : 'Separado pelas seções do mercado. Marque o que você já tem em casa ou já comprou.'}
+          </p>
+          {groups.map((group) => (
+            <div key={group.aisle} className="aisle">
+              <h3>{group.label}</h3>
+              {group.items.map((item) =>
+                arranging ? (
+                  <label className="shopping-item" key={item.key}>
+                    <span className="grow-text">{item.label}</span>
+                    <select className="aisle-select" aria-label={`Seção de ${item.name}`} value={group.aisle} onChange={(event) => moveItem(item, event.target.value as Aisle)}>
+                      {AISLES.map(([aisle, label]) => <option key={aisle} value={aisle}>{label}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <label className={state.checked.includes(item.key) ? 'shopping-item checked' : 'shopping-item'} key={item.key}>
+                    <input type="checkbox" checked={state.checked.includes(item.key)} onChange={() => toggleItem(item.key)} />
+                    <span>{item.label}</span>
+                  </label>
+                ),
+              )}
+            </div>
+          ))}
         </section>
       )}
     </div>

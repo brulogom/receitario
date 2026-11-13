@@ -1,9 +1,12 @@
-import type { Ingredient, Recipe } from '../domain/types';
-import { openDb, type MarkEntry, type RecipeVersion, type ShoppingState } from './db';
+import { isDateKey } from '../domain/dates';
+import type { Collection, CookedEntry, Ingredient, PlanEntry, Recipe } from '../domain/types';
+import { ALL_STORES, openDb, type MarkEntry, type RecipeVersion, type ShoppingState } from './db';
 import { MAX_VERSIONS, pushVersion } from './recipes';
 
 const FORMAT = 'receitario-backup';
-const VERSION = 1;
+const VERSION = 2;
+/** Backups antigos continuam valendo: a versão 1 só não tinha plano, registros e coleções. */
+const READABLE = [1, 2];
 
 type StoredPhoto = { type: string; base64: string };
 type StoredRecipe = Omit<Recipe, 'photo'> & { photo?: StoredPhoto };
@@ -11,12 +14,15 @@ type StoredVersion = Omit<RecipeVersion, 'snapshot'> & { snapshot: StoredRecipe 
 
 type BackupFile = {
   format: typeof FORMAT;
-  version: typeof VERSION;
+  version: number;
   exportedAt: string;
   recipes: StoredRecipe[];
   versions: StoredVersion[];
   marks: MarkEntry[];
   shopping: ShoppingState | null;
+  plan?: PlanEntry[];
+  cooked?: CookedEntry[];
+  collections?: Collection[];
 };
 
 export class InvalidBackupError extends Error {
@@ -54,11 +60,14 @@ function decodeRecipe(stored: StoredRecipe): Recipe {
 
 export async function exportBackup(): Promise<string> {
   const db = await openDb();
-  const [recipes, versions, marks, shopping] = await Promise.all([
+  const [recipes, versions, marks, shopping, plan, cooked, collections] = await Promise.all([
     db.getAll('recipes'),
     db.getAll('versions'),
     db.getAll('marks'),
     db.get('shopping', 'state'),
+    db.getAll('plan'),
+    db.getAll('cooked'),
+    db.getAll('collections'),
   ]);
   const file: BackupFile = {
     format: FORMAT,
@@ -70,6 +79,9 @@ export async function exportBackup(): Promise<string> {
     ),
     marks,
     shopping: shopping ?? null,
+    plan,
+    cooked,
+    collections,
   };
   return JSON.stringify(file);
 }
@@ -98,6 +110,7 @@ function isRecipe(value: unknown): value is StoredRecipe {
     (r.kind === 'doce' || r.kind === 'salgado' || r.kind === 'ambos' || r.kind === 'indefinido') &&
     (r.servingsUnit === undefined || typeof r.servingsUnit === 'string') &&
     (r.book === undefined || (typeof r.book?.title === 'string' && isNumberOrNull(r.book?.page))) &&
+    (r.tags === undefined || isStringList(r.tags)) &&
     isStringList(r.categories) &&
     !!r.diet &&
     typeof r.diet === 'object' &&
@@ -121,9 +134,51 @@ function isShopping(value: unknown): boolean {
     !!s &&
     Array.isArray(s.selections) &&
     s.selections.every((item) => typeof item?.recipeId === 'string' && isNumberOrNull(item?.servings)) &&
-    isStringList(s.checked)
+    isStringList(s.checked) &&
+    (s.sections === undefined ||
+      (!!s.sections && typeof s.sections === 'object' && Object.values(s.sections).every((value) => typeof value === 'string')))
   );
 }
+
+function isPlanEntry(value: unknown): boolean {
+  const p = value as PlanEntry | null;
+  return (
+    !!p &&
+    typeof p.id === 'string' &&
+    isDateKey(p.date) &&
+    (p.meal === 'almoco' || p.meal === 'jantar') &&
+    typeof p.recipeId === 'string' &&
+    isNumberOrNull(p.servings)
+  );
+}
+
+function isCookedEntry(value: unknown): boolean {
+  const c = value as CookedEntry | null;
+  return (
+    !!c &&
+    typeof c.id === 'string' &&
+    typeof c.recipeId === 'string' &&
+    isDateKey(c.date) &&
+    (c.rating === null || (Number.isInteger(c.rating) && c.rating >= 1 && c.rating <= 5)) &&
+    typeof c.comment === 'string' &&
+    typeof c.at === 'string'
+  );
+}
+
+function isCollection(value: unknown): boolean {
+  const c = value as Collection | null;
+  return (
+    !!c &&
+    typeof c.id === 'string' &&
+    typeof c.name === 'string' &&
+    isStringList(c.recipeIds) &&
+    typeof c.createdAt === 'string' &&
+    typeof c.updatedAt === 'string'
+  );
+}
+
+const optionalList = (value: unknown, check: (item: unknown) => boolean) =>
+  value === undefined || (Array.isArray(value) && value.every(check));
 
 function parseFile(json: string): BackupFile {
   let data: BackupFile | null;
@@ -133,7 +188,7 @@ function parseFile(json: string): BackupFile {
     throw new InvalidBackupError();
   }
   if (!data || data.format !== FORMAT) throw new InvalidBackupError();
-  if (data.version !== VERSION) {
+  if (!READABLE.includes(data.version)) {
     throw new InvalidBackupError('Este backup foi feito em uma versão diferente do Receitário.');
   }
   const valid =
@@ -145,7 +200,10 @@ function parseFile(json: string): BackupFile {
     data.marks.every(
       (m) => typeof m?.key === 'string' && typeof m?.recipeId === 'string' && (m?.kind === 'favorite' || m?.kind === 'try'),
     ) &&
-    isShopping(data.shopping ?? null);
+    isShopping(data.shopping ?? null) &&
+    optionalList(data.plan, isPlanEntry) &&
+    optionalList(data.cooked, isCookedEntry) &&
+    optionalList(data.collections, isCollection);
   if (!valid) throw new InvalidBackupError();
   return data;
 }
@@ -164,7 +222,7 @@ export async function importBackup(json: string): Promise<{ added: number; updat
   }
 
   const db = await openDb();
-  const tx = db.transaction(['recipes', 'versions', 'marks', 'shopping'], 'readwrite');
+  const tx = db.transaction([...ALL_STORES], 'readwrite');
   const result = { added: 0, updated: 0, kept: 0 };
   const now = new Date().toISOString();
   const recipeStore = tx.objectStore('recipes');
@@ -205,9 +263,26 @@ export async function importBackup(json: string): Promise<{ added: number; updat
       {
         selections: [...(local?.selections ?? []), ...file.shopping.selections.filter((s) => !known.has(s.recipeId))],
         checked: [...new Set([...(local?.checked ?? []), ...file.shopping.checked])],
+        // A correção feita neste aparelho vale mais que a do backup.
+        sections: { ...file.shopping.sections, ...local?.sections },
       },
       'state',
     );
+  }
+
+  for (const entry of file.plan ?? []) await tx.objectStore('plan').put(entry);
+  for (const entry of file.cooked ?? []) await tx.objectStore('cooked').put(entry);
+
+  const collectionStore = tx.objectStore('collections');
+  for (const incoming of file.collections ?? []) {
+    const local = await collectionStore.get(incoming.id);
+    if (!local) {
+      await collectionStore.put(incoming);
+      continue;
+    }
+    // Nada some: as receitas das duas cópias ficam juntas, e o nome mais recente vence.
+    const newer = incoming.updatedAt > local.updatedAt ? incoming : local;
+    await collectionStore.put({ ...newer, recipeIds: [...new Set([...local.recipeIds, ...incoming.recipeIds])] });
   }
 
   await tx.done;

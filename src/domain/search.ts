@@ -1,5 +1,6 @@
 import MiniSearch from 'minisearch';
 import { ingredientMatches } from './ingredientMatch';
+import { sameTag } from './tags';
 import { normalize } from './text';
 import type { Category, Diet, Recipe } from './types';
 
@@ -7,6 +8,8 @@ export type Filters = {
   categories: Category[];
   maxMinutes: number | null;
   diet: (keyof Diet)[];
+  /** Mostra só receitas com todas estas etiquetas. */
+  tags?: string[];
 };
 
 const STOPWORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'com', 'e', 'a', 'o', 'em', 'na', 'no']);
@@ -19,13 +22,14 @@ function processTerm(term: string): string | null {
 function passesFilters(recipe: Recipe, filters: Filters): boolean {
   if (filters.categories.length && !filters.categories.some((c) => recipe.categories.includes(c))) return false;
   if (filters.maxMinutes !== null && (recipe.minutes === null || recipe.minutes > filters.maxMinutes)) return false;
+  if (filters.tags?.some((tag) => !recipe.tags?.some((own) => sameTag(own, tag)))) return false;
   return filters.diet.every((key) => recipe.diet[key]);
 }
 
 export function createSearch(recipes: Recipe[]): (query: string, filters: Filters) => Recipe[] {
   const byId = new Map(recipes.map((recipe) => [recipe.id, recipe]));
-  const index = new MiniSearch<{ id: string; name: string; ingredients: string }>({
-    fields: ['name', 'ingredients'],
+  const index = new MiniSearch<{ id: string; name: string; ingredients: string; tags: string }>({
+    fields: ['name', 'ingredients', 'tags'],
     processTerm,
   });
   index.addAll(
@@ -33,6 +37,7 @@ export function createSearch(recipes: Recipe[]): (query: string, filters: Filter
       id: recipe.id,
       name: recipe.name,
       ingredients: recipe.ingredients.map((i) => `${i.name} ${i.base ?? ''}`).join(' '),
+      tags: (recipe.tags ?? []).join(' '),
     })),
   );
 

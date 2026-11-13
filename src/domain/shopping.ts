@@ -51,9 +51,15 @@ function label(line: Line): string {
   return line.missingAmount ? `${display(line)} + ${UNKNOWN_AMOUNT}` : display(line);
 }
 
-export function buildShoppingList(
-  selections: { recipe: Recipe; servings: number | null }[],
-): { key: string; label: string }[] {
+export type ShoppingItem = {
+  key: string;
+  label: string;
+  /** Nome no singular e sem acento: guarda a seção escolhida pela pessoa. */
+  nameKey: string;
+  name: string;
+};
+
+export function buildShoppingList(selections: { recipe: Recipe; servings: number | null }[]): ShoppingItem[] {
   const lines = new Map<string, Line>();
   for (const { recipe, servings } of selections) {
     const factor = servings && recipe.servings ? servings / recipe.servings : 1;
@@ -92,5 +98,5 @@ export function buildShoppingList(
       lines.delete(key);
     }
   }
-  return [...lines].map(([key, line]) => ({ key, label: label(line) }));
+  return [...lines].map(([key, line]) => ({ key, label: label(line), nameKey: line.nameKey, name: line.name }));
 }

@@ -3,11 +3,13 @@ import { catalog } from '../catalog';
 import { getMine } from '../storage/recipes';
 import type { Recipe } from '../domain/types';
 import { BookImport } from './screens/BookImport';
+import { CollectionScreen } from './screens/CollectionScreen';
 import { CookScreen } from './screens/CookScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { ImportReview } from './screens/ImportReview';
 import { MineScreen } from './screens/MineScreen';
 import { PantryScreen } from './screens/PantryScreen';
+import { PlanScreen } from './screens/PlanScreen';
 import { RecipeForm } from './screens/RecipeForm';
 import { RecipeScreen } from './screens/RecipeScreen';
 import { SavedScreen } from './screens/SavedScreen';
@@ -23,6 +25,7 @@ const TABS = [
   ['casa', 'Em casa', 'M3 11l9-8 9 8M5 10v10h14V10'],
   ['minhas', 'Minhas', 'M4 5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2zM8 7h8'],
   ['salvas', 'Salvas', 'M12 20s-7-4.6-9-9a5 5 0 0 1 9-4 5 5 0 0 1 9 4c-2 4.4-9 9-9 9z'],
+  ['semana', 'Semana', 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4'],
   ['compras', 'Compras', 'M3 4h2l2.5 12h11L21 8H6M9 20h.01M17 20h.01'],
 ] as const;
 
@@ -46,6 +49,7 @@ function TabScreen({ tab }: { tab: Tab }) {
   if (tab === 'casa') return <PantryScreen />;
   if (tab === 'minhas') return <MineScreen />;
   if (tab === 'salvas') return <SavedScreen />;
+  if (tab === 'semana') return <PlanScreen />;
   if (tab === 'compras') return <ShoppingScreen />;
   return <SearchScreen />;
 }
@@ -93,12 +97,13 @@ function Shell({ initialShare }: { initialShare: Share | null }) {
   }
 
   let detail = null;
-  if (section === 'receita' && id) detail = <RecipeScreen key={id} id={id} backHref={`#/${tab}`} />;
+  if (section === 'receita' && id) detail = <RecipeScreen key={id} id={id} backHref={`#/${tab}`} openCooked={extra === 'fiz'} />;
   else if (section === 'nova') detail = <RecipeForm draft initial={share?.recipe} leftovers={share?.leftovers} />;
   else if (section === 'importar') detail = <ImportReview />;
   else if (section === 'livro') detail = <BookImport />;
   else if (section === 'editar' && id) detail = <EditScreen id={id} />;
   else if (section === 'historico' && id) detail = <HistoryScreen id={id} />;
+  else if (section === 'colecao' && id) detail = <CollectionScreen key={id} id={id} />;
 
   return (
     <div className="app" data-detail={detail ? 'true' : 'false'}>

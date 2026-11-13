@@ -1,10 +1,10 @@
 import type { IDBPTransaction } from 'idb';
 import type { Recipe } from '../domain/types';
-import { openDb, type ReceitarioDb, type RecipeVersion } from './db';
+import { ALL_STORES, openDb, type ReceitarioDb, type RecipeVersion, type StoreName } from './db';
 
 export const MAX_VERSIONS = 50;
 
-type VersionsTx = IDBPTransaction<ReceitarioDb, ('recipes' | 'versions' | 'marks' | 'shopping')[], 'readwrite'>;
+type VersionsTx = IDBPTransaction<ReceitarioDb, StoreName[], 'readwrite'>;
 
 export function newId(): string {
   return crypto.randomUUID();
@@ -36,7 +36,7 @@ export async function pushVersion(tx: VersionsTx, snapshot: Recipe, savedAt: str
 
 export async function saveMine(recipe: Recipe): Promise<Recipe> {
   const db = await openDb();
-  const tx = db.transaction(['recipes', 'versions', 'marks', 'shopping'], 'readwrite');
+  const tx = db.transaction([...ALL_STORES], 'readwrite');
   const now = new Date().toISOString();
   const previous = await tx.objectStore('recipes').get(recipe.id);
   if (previous) await pushVersion(tx, previous, now);
@@ -51,14 +51,21 @@ export async function copyFromCatalog(recipe: Recipe): Promise<Recipe> {
   return saveMine({ ...recipe, id: newId(), originId: recipe.id, source: 'mine', createdAt: now });
 }
 
+/** Exclui a receita e tudo o que aponta para ela: histórico, marcas, plano, registros e coleções. */
 export async function deleteMine(id: string): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(['recipes', 'versions', 'marks'], 'readwrite');
+  const tx = db.transaction([...ALL_STORES], 'readwrite');
   await tx.objectStore('recipes').delete(id);
-  const versions = tx.objectStore('versions');
-  for (const key of await versions.index('recipeId').getAllKeys(id)) await versions.delete(key);
-  const marks = tx.objectStore('marks');
-  for (const key of await marks.index('recipeId').getAllKeys(id)) await marks.delete(key);
+  for (const name of ['versions', 'marks', 'plan', 'cooked'] as const) {
+    const store = tx.objectStore(name);
+    for (const key of await store.index('recipeId').getAllKeys(id)) await store.delete(key);
+  }
+  const collections = tx.objectStore('collections');
+  for (const collection of await collections.getAll()) {
+    if (collection.recipeIds.includes(id)) {
+      await collections.put({ ...collection, recipeIds: collection.recipeIds.filter((recipeId) => recipeId !== id) });
+    }
+  }
   await tx.done;
 }
 

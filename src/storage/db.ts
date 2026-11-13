@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Recipe } from '../domain/types';
+import type { Collection, CookedEntry, PlanEntry, Recipe } from '../domain/types';
 
 export type RecipeVersion = {
   id: string;
@@ -15,6 +15,8 @@ export type MarkEntry = { key: string; kind: MarkKind; recipeId: string; at: str
 export type ShoppingState = {
   selections: { recipeId: string; servings: number | null }[];
   checked: string[];
+  /** Seção do mercado escolhida pela pessoa para um ingrediente, pelo nome no singular. */
+  sections?: Record<string, string>;
 };
 
 export interface ReceitarioDb extends DBSchema {
@@ -22,10 +24,17 @@ export interface ReceitarioDb extends DBSchema {
   versions: { key: string; value: RecipeVersion; indexes: { recipeId: string } };
   marks: { key: string; value: MarkEntry; indexes: { kind: MarkKind; recipeId: string } };
   shopping: { key: string; value: ShoppingState };
+  plan: { key: string; value: PlanEntry; indexes: { date: string; recipeId: string } };
+  cooked: { key: string; value: CookedEntry; indexes: { recipeId: string } };
+  collections: { key: string; value: Collection };
 }
 
+/** Lojas que uma transação de escrita completa abre: salvar, excluir e importar backup. */
+export const ALL_STORES = ['recipes', 'versions', 'marks', 'shopping', 'plan', 'cooked', 'collections'] as const;
+export type StoreName = (typeof ALL_STORES)[number];
+
 const DB_NAME = 'receitario';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let opening: Promise<IDBPDatabase<ReceitarioDb>> | null = null;
 
@@ -42,6 +51,14 @@ export function openDb(): Promise<IDBPDatabase<ReceitarioDb>> {
         marks.createIndex('kind', 'kind');
         marks.createIndex('recipeId', 'recipeId');
         db.createObjectStore('shopping');
+      }
+      if (oldVersion < 2) {
+        const plan = db.createObjectStore('plan', { keyPath: 'id' });
+        plan.createIndex('date', 'date');
+        plan.createIndex('recipeId', 'recipeId');
+        const cooked = db.createObjectStore('cooked', { keyPath: 'id' });
+        cooked.createIndex('recipeId', 'recipeId');
+        db.createObjectStore('collections', { keyPath: 'id' });
       }
     },
   });

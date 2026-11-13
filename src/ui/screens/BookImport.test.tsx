@@ -62,6 +62,8 @@ test('o que foi corrigido na conferência é o que fica salvo', async () => {
   fireEvent.change(screen.getAllByLabelText('Nome')[0], { target: { value: 'Bolo da Vovó' } });
   await userEvent.click(screen.getByRole('button', { name: 'Salvar 1 receita' }));
   await waitFor(async () => expect((await listMine())[0]?.name).toBe('Bolo da Vovó'));
+  // Espera a tela terminar de recarregar antes do próximo teste.
+  await screen.findByText(/1 receita salva/);
 });
 
 test('enviar o mesmo livro de novo não duplica', async () => {

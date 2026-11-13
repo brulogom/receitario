@@ -261,5 +261,5 @@ test('no último passo, o botão vira Concluir', async () => {
   next();
   next();
   fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
-  expect(window.location.hash).toBe('#/receita/r1');
+  expect(window.location.hash).toBe('#/receita/r1/fiz');
 });
