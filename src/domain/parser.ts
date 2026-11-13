@@ -60,16 +60,31 @@ export function parseIngredientLine(line: string): Ingredient {
     return { quantity: null, unit: '', name: clean };
   }
   const quantity = readQuantity(match[1].trim());
-  const rest = clean.slice(match[0].length).trim();
+  let rest = clean.slice(match[0].length).trim();
   if (!Number.isFinite(quantity) || quantity <= 0 || !rest) return { quantity: null, unit: '', name: clean };
+  // "2 a 3 ovos": o segundo número é o fim da faixa, não parte do nome.
+  const range = readRangeEnd(rest, quantity);
+  if (range) rest = range.rest;
+  const amounts = range ? { quantity, quantityMax: range.max } : { quantity };
   for (const [pattern, unit] of UNITS) {
     const found = rest.match(pattern);
     if (found) {
       const name = rest.slice(found[0].length).trim().replace(/^de\s+/i, '');
-      if (name) return { quantity, unit, name };
+      if (name) return { ...amounts, unit, name };
     }
   }
-  return { quantity, unit: '', name: rest.replace(/^de\s+/i, '') };
+  return { ...amounts, unit: '', name: rest.replace(/^de\s+/i, '') };
+}
+
+function readRangeEnd(text: string, start: number): { max: number; rest: string } | null {
+  const connector = text.match(/^(?:(?:a|ou|até)\s+|[-–—]\s*)/i);
+  if (!connector) return null;
+  const after = text.slice(connector[0].length);
+  const end = after.match(QUANTITY);
+  if (!end) return null;
+  const max = readQuantity(end[1].trim());
+  const rest = after.slice(end[0].length).trim();
+  return Number.isFinite(max) && max > start && rest ? { max, rest } : null;
 }
 
 function lines(text: string): string[] {

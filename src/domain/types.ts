@@ -1,5 +1,7 @@
 export type Ingredient = {
   quantity: number | null;
+  /** Fim da faixa em "2 a 3 ovos". */
+  quantityMax?: number;
   unit: string;
   name: string;
   base?: string;
@@ -41,6 +43,8 @@ export type Recipe = {
   steps: string[];
   notes: string;
   videoUrl: string;
+  /** Livro de onde a receita veio, enviado pela pessoa. */
+  book?: { title: string; page: number | null };
   photo?: Blob;
   createdAt: string;
   updatedAt: string;

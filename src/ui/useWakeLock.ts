@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+const RETRY_ONLY_AFTER = 5_000;
+
 export function useWakeLock(active: boolean): { supported: boolean; held: boolean } {
   const available = typeof navigator !== 'undefined' && 'wakeLock' in navigator;
   const [held, setHeld] = useState(false);
@@ -21,8 +23,14 @@ export function useWakeLock(active: boolean): { supported: boolean; held: boolea
         sentinel = lock;
         setHeld(true);
         setRefused(false);
+        const acquiredAt = Date.now();
         lock.addEventListener('release', () => {
-          if (!stopped) setHeld(false);
+          if (stopped) return;
+          setHeld(false);
+          if (document.visibilityState !== 'visible') return;
+          // Soltou com o aplicativo na tela: tenta de novo. Se soltar logo em seguida, avisa em vez de insistir.
+          if (Date.now() - acquiredAt < RETRY_ONLY_AFTER) setRefused(true);
+          else void acquire();
         });
       } catch {
         if (stopped) return;

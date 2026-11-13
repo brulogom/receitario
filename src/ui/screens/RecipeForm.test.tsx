@@ -74,7 +74,7 @@ test('aceita rendimento decimal e a unidade escolhida', async () => {
   renderScreen(<RecipeForm />);
   await userEvent.type(screen.getByLabelText('Nome'), 'Crepe');
   await userEvent.type(screen.getByLabelText('Quanto rende'), '1,5');
-  fireEvent.change(screen.getByLabelText('Unidade, no plural'), { target: { value: 'Crepes' } });
+  fireEvent.change(screen.getByLabelText('Unidade'), { target: { value: 'Crepes' } });
   fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'ambos' } });
   await save();
   await waitFor(async () => expect(await listMine()).toHaveLength(1));

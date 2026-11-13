@@ -1,3 +1,4 @@
+import { catalog } from '../catalog';
 import { servingsText } from '../domain/portions';
 import type { Recipe, RecipeKind } from '../domain/types';
 import { RecipeArt } from './RecipeArt';
@@ -9,11 +10,13 @@ export function recipeMeta(recipe: Recipe): string {
 }
 
 export function isEditedCatalog(recipe: Recipe): boolean {
-  return recipe.source === 'mine' && recipe.originId === recipe.id;
+  // Sem a original no catálogo, é uma receita como outra qualquer: não há para onde voltar.
+  return recipe.source === 'mine' && recipe.originId === recipe.id && catalog.some((item) => item.id === recipe.id);
 }
 
 export function recipeTag(recipe: Recipe): string {
   if (recipe.source !== 'mine') return '';
+  if (recipe.book) return 'Do livro';
   return isEditedCatalog(recipe) ? 'Editada por mim' : 'Minha receita';
 }
 

@@ -1,9 +1,12 @@
+import { pluralizePhrase, singularizePhrase } from './plural';
 import type { Ingredient, Recipe } from './types';
 
 export const DEFAULT_SERVINGS_UNIT = 'pessoas';
 
+/** A unidade sempre no plural, como quer que tenha sido digitada: "docinho" e "docinhos" são a mesma. */
 export function servingsUnitOf(recipe: Pick<Recipe, 'servingsUnit'>): string {
-  return recipe.servingsUnit?.trim() || DEFAULT_SERVINGS_UNIT;
+  const typed = recipe.servingsUnit?.trim().toLowerCase();
+  return typed ? pluralizePhrase(typed) : DEFAULT_SERVINGS_UNIT;
 }
 
 /** Meia pessoa faz sentido ao dividir uma receita; meio docinho, não. */
@@ -19,18 +22,9 @@ export function formatServings(servings: number): string {
   return String(Math.round(servings * 100) / 100).replace('.', ',');
 }
 
-function singularWord(word: string): string {
-  if (word.endsWith('ães')) return `${word.slice(0, -3)}ão`;
-  if (word.endsWith('ns')) return `${word.slice(0, -2)}m`;
-  if (/[rz]es$/.test(word)) return word.slice(0, -2);
-  return word.replace(/s$/, '');
-}
-
-/** Abaixo de 2 o português usa o singular: "1,5 pessoa", "1 fatia". */
+/** Abaixo de 2 o português usa o singular: "1,5 pessoa", "1 docinho". */
 export function unitLabel(unit: string, servings: number): string {
-  if (servings >= 2) return unit;
-  const [first, ...rest] = unit.split(' ');
-  return [singularWord(first), ...rest].join(' ');
+  return servings >= 2 ? unit : singularizePhrase(unit);
 }
 
 export function servingsText(recipe: Pick<Recipe, 'servings' | 'servingsUnit'>): string {
@@ -39,13 +33,17 @@ export function servingsText(recipe: Pick<Recipe, 'servings' | 'servingsUnit'>):
   return `${servingsVerb(unit)} ${formatServings(recipe.servings)} ${unitLabel(unit, recipe.servings)}`;
 }
 
-const FRACTIONS: [number, string][] = [
-  [0.25, '¼'],
-  [0.33, '⅓'],
-  [0.5, '½'],
-  [0.67, '⅔'],
-  [0.75, '¾'],
+/** Só viram símbolo as frações que a quantidade realmente é, nunca a mais próxima. */
+const FRACTIONS: [number, string, number][] = [
+  [1 / 4, '¼', 0.005],
+  [1 / 3, '⅓', 0.01],
+  [1 / 2, '½', 0.005],
+  [2 / 3, '⅔', 0.01],
+  [3 / 4, '¾', 0.005],
 ];
+
+/** Peso e volume ficam em decimal, como na embalagem: 0,05 l, 1,2 l, 0,5 kg. */
+const METRIC_UNITS = new Set(['g', 'kg', 'ml', 'l']);
 
 const UNIT_PLURALS: Record<string, string> = {
   xícara: 'xícaras',
@@ -64,34 +62,30 @@ export function scaleQuantity(quantity: number, from: number, to: number): numbe
   return (quantity * to) / from;
 }
 
-export function formatQuantity(quantity: number): string {
-  if (quantity >= 10) return String(Math.round(quantity));
-  let whole = Math.floor(quantity);
-  let part = quantity - whole;
-  if (part > 0.9) {
-    whole += 1;
-    part = 0;
-  }
-  if (part < 0.1) return String(whole || 1);
-  const [, symbol] = FRACTIONS.reduce((best, item) =>
-    Math.abs(item[0] - part) < Math.abs(best[0] - part) ? item : best,
-  );
-  return whole ? `${whole} ${symbol}` : symbol;
+function formatDecimal(quantity: number): string {
+  const rounded = quantity < 1 ? Number(quantity.toPrecision(3)) : Math.round(quantity * (quantity < 10 ? 100 : 10)) / (quantity < 10 ? 100 : 10);
+  return String(rounded).replace('.', ',');
 }
 
-function pluralizeName(name: string): string {
-  const [first, ...rest] = name.split(' ');
-  if (first.endsWith('s')) return name;
-  const plural = /[aeiou]$/i.test(first) ? `${first}s` : `${first}es`;
-  return [plural, ...rest].join(' ');
+/** Mostra a quantidade como ela é: não arredonda para a fração nem para o inteiro mais próximos. */
+export function formatQuantity(quantity: number, unit = ''): string {
+  const nearest = Math.round(quantity);
+  if (nearest > 0 && Math.abs(quantity - nearest) < 0.001) return String(nearest);
+  if (METRIC_UNITS.has(unit)) return formatDecimal(quantity);
+  const whole = Math.floor(quantity);
+  const part = quantity - whole;
+  const fraction = FRACTIONS.find(([value, , tolerance]) => Math.abs(value - part) < tolerance);
+  if (!fraction) return formatDecimal(quantity);
+  return whole ? `${whole} ${fraction[1]}` : fraction[1];
 }
 
 export function formatIngredient(ingredient: Ingredient, factor = 1): string {
-  const { quantity, unit, name } = ingredient;
+  const { quantity, quantityMax, unit, name } = ingredient;
   if (quantity === null) return unit ? `${name} ${unit}` : name;
   const scaled = quantity * factor;
-  const amount = formatQuantity(scaled);
-  if (!unit) return `${amount} ${scaled >= 2 ? pluralizeName(name) : name}`;
-  const unitText = scaled >= 2 ? (UNIT_PLURALS[unit] ?? unit) : unit;
+  const top = (quantityMax ?? quantity) * factor;
+  const amount = quantityMax ? `${formatQuantity(scaled, unit)} a ${formatQuantity(top, unit)}` : formatQuantity(scaled, unit);
+  if (!unit) return `${amount} ${top >= 2 ? pluralizePhrase(name) : singularizePhrase(name)}`;
+  const unitText = top >= 2 ? (UNIT_PLURALS[unit] ?? unit) : unit;
   return `${amount} ${unitText} de ${name}`;
 }

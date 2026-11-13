@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { catalog } from '../catalog';
 import { getMine } from '../storage/recipes';
 import type { Recipe } from '../domain/types';
+import { BookImport } from './screens/BookImport';
 import { CookScreen } from './screens/CookScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { ImportReview } from './screens/ImportReview';
@@ -95,6 +96,7 @@ function Shell({ initialShare }: { initialShare: Share | null }) {
   if (section === 'receita' && id) detail = <RecipeScreen key={id} id={id} backHref={`#/${tab}`} />;
   else if (section === 'nova') detail = <RecipeForm draft initial={share?.recipe} leftovers={share?.leftovers} />;
   else if (section === 'importar') detail = <ImportReview />;
+  else if (section === 'livro') detail = <BookImport />;
   else if (section === 'editar' && id) detail = <EditScreen id={id} />;
   else if (section === 'historico' && id) detail = <HistoryScreen id={id} />;
 

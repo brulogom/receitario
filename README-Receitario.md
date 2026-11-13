@@ -64,7 +64,8 @@ Assim, Minhas Receitas fica reservada ao que você realmente sabe fazer.
 ### 5. Na hora de cozinhar
 
 - **Modo cozinha:** mostra um passo por vez em letra grande e mantém a tela ligada
-- **Temporizadores:** você inicia a contagem de tempo na própria etapa da receita
+- **Enviar livro:** em Minhas Receitas, envie o PDF com texto ou o TXT do seu livro, confira as receitas encontradas e salve. O arquivo é lido no aparelho e as receitas ficam só nele, com o nome do livro e a página
+- **Temporizadores:** você inicia a contagem de tempo na própria etapa da receita, com os tempos do passo ou com os minutos que quiser
 - **Ajuste de rendimento:** cada receita diz o que rende ("Serve 4 pessoas", "Rende 20 docinhos", também com decimais como 1,5); ao mudar de 4 para 6, as quantidades são recalculadas
 
 ### 6. Lista de compras
@@ -76,7 +77,7 @@ Você escolhe as receitas e o programa monta a lista de ingredientes, somando os
 1. Abra o programa e digite o que quer cozinhar, ou informe o que tem em casa.
 2. Abra uma receita para ver os ingredientes e o modo de preparo, e ajuste as porções se precisar.
 3. Clique em **Modo cozinha** para seguir o preparo passo a passo.
-4. Marque a receita como **Favorita** ou **Quero testar**, clique em **Editar** para mudar a própria receita (dá para voltar à original), ou em **Salvar em Minhas Receitas** para guardar uma cópia separada.
+4. Marque a receita como **Favorita** ou **Quero testar**, clique em **Editar** para mudar a própria receita.
 5. Para registrar uma receita que você já sabe, vá em **Minhas Receitas > Nova receita** e digite ou cole o texto.
 
 ## Propostas técnicas

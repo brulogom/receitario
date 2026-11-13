@@ -38,6 +38,7 @@ export function MineScreen() {
       <div className="actions">
         <a className="button primary grow" href="#/nova">Nova receita</a>
         <a className="button grow" href="#/importar">Colar texto</a>
+        <a className="button grow" href="#/livro">Enviar livro</a>
       </div>
       {loaded && mine.length === 0 && (
         <p className="muted">Você ainda não guardou nenhuma receita. Toque em Nova receita para anotar a primeira.</p>

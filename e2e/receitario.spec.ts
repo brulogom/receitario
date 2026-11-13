@@ -1,17 +1,52 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const nextLabel = 'Próximo';
 
-test('buscar, abrir, ajustar porções e entrar no modo cozinha', async ({ page }) => {
+type NewRecipe = { name: string; ingredients?: string; steps?: string; yields?: string; unit?: string };
+
+/** O aplicativo começa sem receitas: cada teste cria as suas pelo formulário e recebe o id. */
+async function createRecipe(page: Page, recipe: NewRecipe): Promise<string> {
+  await page.goto('./#/nova');
+  await page.getByLabel('Nome', { exact: true }).fill(recipe.name);
+  if (recipe.ingredients) await page.getByLabel('Ingredientes, um por linha').fill(recipe.ingredients);
+  if (recipe.steps) await page.getByLabel('Modo de preparo, um passo por linha').fill(recipe.steps);
+  if (recipe.yields) await page.getByLabel('Quanto rende').fill(recipe.yields);
+  if (recipe.unit) await page.getByLabel('Unidade').fill(recipe.unit);
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: recipe.name })).toBeVisible();
+  return page.evaluate(() => window.location.hash.split('/').pop() ?? '');
+}
+
+const fuba: NewRecipe = {
+  name: 'Bolo de fubá',
+  ingredients: '3 ovos\n2 xícaras de açúcar\n2 xícaras de fubá',
+  steps: 'Bata os ovos.\nJunte o açúcar.\nJunte o fubá.\nAsse por 40 minutos.',
+  yields: '12',
+  unit: 'fatias',
+};
+
+test('o aplicativo começa sem receitas prontas e explica como começar', async ({ page }) => {
   await page.goto('./');
+  await expect(page.getByText('Ainda não há receitas aqui')).toBeVisible();
+  await expect(page.locator('.recipe-row')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Enviar livro' }).click();
+  await expect(page.getByRole('heading', { name: 'Enviar livro de receitas' })).toBeVisible();
+});
+
+test('buscar, abrir, ajustar porções e entrar no modo cozinha', async ({ page }) => {
+  await createRecipe(page, fuba);
+  await page.goto('./#/buscar');
+  // O foco automático vale para quando o aplicativo abre.
+  await page.reload();
   const search = page.getByLabel('O que você quer cozinhar?');
   await expect(search).toBeFocused();
   await search.fill('acucar fuba');
-  await page.getByRole('link', { name: /Bolo de fubá/ }).click();
-  await expect(page.getByRole('heading', { name: 'Bolo de fubá' })).toBeVisible();
-  await expect(page.getByText('3 ovos')).toBeVisible();
+  await page.locator('.list').getByRole('link', { name: /Bolo de fubá/ }).click();
+  const recipe = page.locator('article');
+  await expect(recipe.getByRole('heading', { name: 'Bolo de fubá' })).toBeVisible();
+  await expect(recipe.getByText('3 ovos')).toBeVisible();
   for (let i = 0; i < 12; i++) await page.getByRole('button', { name: 'Mais fatias' }).click();
-  await expect(page.getByText('6 ovos')).toBeVisible();
+  await expect(recipe.getByText('6 ovos')).toBeVisible();
   await page.getByRole('link', { name: 'Modo cozinha' }).click();
   await expect(page.getByText('Passo 1 de 4')).toBeVisible();
   for (let i = 0; i < 3; i++) await page.getByRole('button', { name: nextLabel }).click();
@@ -60,16 +95,21 @@ test('backup: exportar, apagar os dados e importar de volta', async ({ page }) =
 });
 
 test('funciona sem internet depois da primeira visita', async ({ page, context }) => {
-  await page.goto('./');
+  await createRecipe(page, fuba);
+  await page.goto('./#/buscar');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, { timeout: 15_000 }).catch(() => page.reload());
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole('link', { name: /Bolo de fubá/ })).toBeVisible();
+  await expect(page.locator('.list').getByRole('link', { name: /Bolo de fubá/ })).toBeVisible();
+  await page.goto('./#/livro');
+  await page.getByLabel('Arquivo do livro (PDF com texto ou TXT)').setInputFiles('e2e/fixtures/livro-teste.pdf');
+  await expect(page.getByRole('heading', { name: '1 receita encontrada' })).toBeVisible();
 });
 
 test('sem rolagem horizontal em nenhuma aba', async ({ page }) => {
-  for (const route of ['buscar', 'casa', 'minhas', 'salvas', 'compras', 'receita/escondidinho-de-carne-seca', 'nova', 'importar', 'cozinha/bolo-de-fuba/']) {
+  const id = await createRecipe(page, { ...fuba, name: 'Escondidinho de carne-seca com nome bem comprido para testar a largura' });
+  for (const route of ['buscar', 'casa', 'minhas', 'salvas', 'compras', `receita/${id}`, 'nova', 'importar', 'livro', `cozinha/${id}/`]) {
     await page.goto(`./#/${route}`);
     await page.waitForTimeout(100);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -105,44 +145,65 @@ test('o rascunho sobrevive a recarregar a página', async ({ page }) => {
 });
 
 test('Em casa mostra o que dá para fazer', async ({ page }) => {
+  await createRecipe(page, { name: 'Doce de leite condensado', ingredients: '1 lata de leite condensado\n1 colher de sopa de manteiga' });
   await page.goto('./#/casa');
-  await page.getByLabel('Ingredientes, separados por vírgula').fill('leite condensado, manteiga, chocolate em pó, chocolate granulado');
-  await expect(page.getByRole('link', { name: /Brigadeiro de panela/ })).toContainText('Dá para fazer agora');
+  await page.getByLabel('Ingredientes, separados por vírgula').fill('leite condensado, manteiga');
+  await expect(page.locator('.list').getByRole('link', { name: /Doce de leite condensado/ })).toContainText('Dá para fazer agora');
 });
 
 test('Compras soma ingredientes de duas receitas', async ({ page }) => {
-  await page.goto('./#/receita/brigadeiro');
-  await page.getByRole('button', { name: 'Adicionar às compras' }).click();
-  await expect(page.getByRole('button', { name: 'Tirar das compras' })).toBeVisible();
-  await page.goto('./#/receita/beijinho');
-  await page.getByRole('button', { name: 'Adicionar às compras' }).click();
-  await expect(page.getByRole('button', { name: 'Tirar das compras' })).toBeVisible();
+  for (const name of ['Primeiro doce', 'Segundo doce']) {
+    const id = await createRecipe(page, { name, ingredients: '1 lata de leite condensado' });
+    await page.goto(`./#/receita/${id}`);
+    await page.getByRole('button', { name: 'Adicionar às compras' }).click();
+    await expect(page.getByRole('button', { name: 'Tirar das compras' })).toBeVisible();
+  }
   await page.goto('./#/compras');
   await expect(page.getByLabel('2 latas de leite condensado')).toBeVisible();
 });
 
-test('editar receita pronta substitui a original e dá para voltar', async ({ page }, testInfo) => {
-  await page.goto('./#/receita/brigadeiro');
-  await expect(page.locator('p', { hasText: 'Rende 20 docinhos' })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('receita.png'), fullPage: true });
-  await page.getByRole('link', { name: 'Editar' }).click();
-  await page.getByLabel('Nome').fill('Brigadeiro da casa');
-  await page.getByText('Mais detalhes (opcional)').click();
-  await page.getByLabel('Tipo').selectOption('ambos');
-  await page.screenshot({ path: testInfo.outputPath('formulario.png'), fullPage: true });
+test('quantidades exatas, plural, dois tempos e passo lembrado ao recarregar', async ({ page }, testInfo) => {
+  await page.goto('./#/nova');
+  await page.getByLabel('Nome').fill('Receita completa');
+  await page.getByLabel('Ingredientes, um por linha').fill('2 a 3 ovos\n2 limões\n2 pães franceses\n0,05 l de leite\novos');
+  await page.getByLabel('Modo de preparo, um passo por linha').fill('Misture tudo.\nFrite por 5 minutos de cada lado e asse por meia hora.');
+  await page.getByLabel('Quanto rende').fill('20');
+  await page.getByLabel('Unidade').fill('docinho');
   await page.getByRole('button', { name: 'Salvar' }).click();
-  await expect(page.getByRole('heading', { name: 'Brigadeiro da casa' })).toBeVisible();
-  await expect(page.locator('article .tag', { hasText: 'Editada por mim' })).toBeVisible();
+  await expect(page.locator('article p', { hasText: 'Rende 20 docinhos' })).toBeVisible();
+  const ingredients = page.locator('article .ingredients');
+  for (const text of ['2 a 3 ovos', '2 limões', '2 pães franceses', '0,05 l de leite']) {
+    await expect(ingredients.getByText(text, { exact: true })).toBeVisible();
+  }
 
-  await page.goto('./#/buscar');
-  await page.getByLabel('O que você quer cozinhar?').fill('brigadeiro');
-  await expect(page.getByRole('link', { name: /Brigadeiro da casa/ })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Brigadeiro de panela/ })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Salgados' }).click();
-  await expect(page.getByRole('link', { name: /Brigadeiro da casa/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Adicionar às compras' }).click();
+  await page.getByRole('link', { name: 'Modo cozinha' }).click();
+  await page.getByRole('button', { name: 'Próximo' }).click();
+  await expect(page.getByText('Passo 2 de 2')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Passo 2 de 2')).toBeVisible();
+  await page.getByRole('button', { name: 'Iniciar temporizador de 5 min' }).click();
+  await page.getByRole('button', { name: 'Iniciar temporizador de 30 min' }).click();
+  await expect(page.getByText(/^(29:5\d|30:00)$/)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('dois-tempos.png') });
 
-  await page.getByRole('link', { name: /Brigadeiro da casa/ }).click();
-  await page.getByRole('button', { name: 'Voltar à original' }).click();
-  await page.getByRole('button', { name: 'Sim, voltar à original' }).click();
-  await expect(page.getByRole('heading', { name: 'Brigadeiro de panela' })).toBeVisible();
+  await page.goto('./#/compras');
+  await expect(page.getByText('2 a 3 ovos + quantidade não informada')).toBeVisible();
+  await expect(page.getByText('0,05 l de leite')).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('compras.png') });
+});
+
+test('enviar livro em PDF: lê, confere e salva com a fonte', async ({ page }, testInfo) => {
+  await page.goto('./#/minhas');
+  await page.getByRole('link', { name: 'Enviar livro' }).click();
+  await page.getByLabel('Nome do livro').fill('Livro de Teste');
+  await page.getByLabel('Arquivo do livro (PDF com texto ou TXT)').setInputFiles('e2e/fixtures/livro-teste.pdf');
+  await expect(page.getByRole('heading', { name: '1 receita encontrada' })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('conferir.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Salvar 1 receita' }).click();
+  await page.getByRole('link', { name: 'Ver Minhas Receitas' }).click();
+  await page.getByRole('link', { name: /Bolo Simples/ }).click();
+  await expect(page.getByText('Fonte: Livro de Teste, página 1 do arquivo')).toBeVisible();
+  await expect(page.locator('article p', { hasText: 'Rende 12 fatias' })).toBeVisible();
+  await expect(page.locator('article .ingredients').getByText('3 limoes')).toBeVisible();
 });

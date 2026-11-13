@@ -11,14 +11,30 @@ export function shouldRingAgain(timers: Timer[], now: number, lastRing: number):
   );
 }
 
+/** Reescreve tempos por extenso com algarismos: "uma hora e meia" vira "1 hora e 30". */
+function writeHoursAsDigits(text: string): string {
+  return text
+    .replace(/(^|[^\p{L}])(uma|duas|três|tres)\s+(horas?)\b/gu, (_match, before: string, word: string, unit: string) => {
+      const hours = word === 'uma' ? 1 : word === 'duas' ? 2 : 3;
+      return `${before}${hours} ${unit}`;
+    })
+    .replace(/(\d+)\s*(h|horas?)\s+e\s+meia\b/g, '$1 $2 e 30')
+    .replace(/(^|[^\p{L}])meia\s+hora\b/gu, '$130 minutos');
+}
+
+const TIME = /(\d+)\s*(?:h|horas?)\s*(?:e\s*)?(\d+)\s*(?:min|minutos?)?\b|(\d+)\s*(?:h|horas?)\b|(\d+)\s*(?:min|minutos?)\b/g;
+
+/** Todos os tempos citados no passo, na ordem do texto e sem repetir. */
+export function detectTimes(step: string): number[] {
+  const found = [...writeHoursAsDigits(step.toLowerCase()).matchAll(TIME)].map(([, bothHours, bothMinutes, hours, minutes]) => {
+    if (bothHours) return Number(bothHours) * 60 + Number(bothMinutes);
+    return hours ? Number(hours) * 60 : Number(minutes);
+  });
+  return [...new Set(found)];
+}
+
 export function detectMinutes(step: string): number | null {
-  const text = step.toLowerCase();
-  const both = text.match(/(\d+)\s*(?:h|horas?)\s*(?:e\s*)?(\d+)\s*(?:min|minutos?)?\b/);
-  if (both) return Number(both[1]) * 60 + Number(both[2]);
-  const hours = text.match(/(\d+)\s*(?:h|horas?)\b/);
-  if (hours) return Number(hours[1]) * 60;
-  const minutes = text.match(/(\d+)\s*(?:min|minutos?)\b/);
-  return minutes ? Number(minutes[1]) : null;
+  return detectTimes(step)[0] ?? null;
 }
 
 export function remainingSeconds(timer: Timer, now: number): number {

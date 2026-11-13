@@ -3,6 +3,7 @@ import { formatIngredient, formatServings, servingsStep, servingsUnitOf, serving
 import { isHttpUrl } from '../../domain/text';
 import { copyFromCatalog, deleteMine, discardEdits } from '../../storage/recipes';
 import { getShopping, toggleShoppingRecipe } from '../../storage/shopping';
+import { forget, recall, remember } from '../cookMemory';
 import { RecipeArt } from '../RecipeArt';
 import { isEditedCatalog, recipeMeta, recipeTag } from '../RecipeRow';
 import { useRecipes } from '../useRecipes';
@@ -10,10 +11,18 @@ import { useRecipes } from '../useRecipes';
 export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHref?: string }) {
   const { all, loaded, favorites, tries, toggle, reload } = useRecipes();
   const recipe = all.find((item) => item.id === id);
-  const [chosenServings, setServings] = useState<number | null>(null);
+  const servingsKey = `receitario.cozinha.rendimento.${id}`;
+  // Guarda sobre qual rendimento o ajuste foi feito: se a receita for editada, ele deixa de valer.
+  const [chosen, setChosen] = useState(() => recall<{ base: number; value: number }>(servingsKey));
   const [inShopping, setInShopping] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const servings = chosenServings ?? recipe?.servings ?? null;
+  const servings = chosen && chosen.base === recipe?.servings ? chosen.value : recipe?.servings ?? null;
+  const setServings = (value: number) => {
+    if (!recipe?.servings) return;
+    const next = { base: recipe.servings, value };
+    setChosen(next);
+    remember(servingsKey, next);
+  };
 
   useEffect(() => {
     void getShopping().then((state) => setInShopping(state.selections.some((selection) => selection.recipeId === id)));
@@ -53,7 +62,8 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
   const backToOriginal = async () => {
     await discardEdits(id);
     await reload();
-    setServings(null);
+    setChosen(null);
+    forget(servingsKey);
     setConfirming(false);
   };
 
@@ -66,6 +76,12 @@ export function RecipeScreen({ id, backHref = '#/buscar' }: { id: string; backHr
           {isMine && <span className="tag">{recipeTag(recipe)}</span>}
           <h1>{recipe.name}</h1>
           <p className="muted">{recipeMeta(recipe)}</p>
+          {recipe.book && (
+            <p className="muted small">
+              Fonte: {recipe.book.title}
+              {recipe.book.page !== null && `, página ${recipe.book.page} do arquivo`}
+            </p>
+          )}
         </div>
       </div>
 

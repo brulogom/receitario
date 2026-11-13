@@ -41,7 +41,8 @@ As receitas ficam salvas só no aparelho. Use **Minhas > Fazer backup** de vez e
 
 - `src/domain`: regras sem interface (busca, leitor de texto, porções, compras, temporizadores)
 - `src/storage`: dados da pessoa no IndexedDB, histórico e backup
-- `src/catalog`: receitas do catálogo, como dados. Para acrescentar uma, inclua-a em `doces.ts` ou `salgados.ts`; os testes validam o formato e as restrições alimentares
+- `src/catalog`: receitas que acompanham o aplicativo; hoje vazio. Só entra o que tem fonte real e licença que permita publicar
+- `src/test-fixtures`: receitas fictícias usadas só nos testes; não vão para o site
 - `src/ui`: telas e estilos
 
 Ao mudar o formato dos dados, aumente `DB_VERSION` em `src/storage/db.ts` e acrescente uma migração. Nunca recrie as tabelas: isso apagaria as receitas da pessoa.

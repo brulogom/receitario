@@ -34,7 +34,7 @@ function Chip({ label, on, toggle }: { label: string; on: boolean; toggle: () =>
 }
 
 export function SearchScreen() {
-  const { all } = useRecipes();
+  const { all, loaded } = useRecipes();
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<'doce' | 'salgado' | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -83,7 +83,16 @@ export function SearchScreen() {
           ))}
         </div>
       </details>
-      {results.length === 0 && <p className="muted">Nada encontrado. Tente outro nome ou ingrediente, ou tire um filtro.</p>}
+      {loaded && all.length === 0 && (
+        <div className="stack">
+          <p className="muted">Ainda não há receitas aqui. Envie um livro de receitas ou anote a primeira.</p>
+          <div className="actions">
+            <a className="button primary grow" href="#/livro">Enviar livro</a>
+            <a className="button grow" href="#/nova">Nova receita</a>
+          </div>
+        </div>
+      )}
+      {all.length > 0 && results.length === 0 && <p className="muted">Nada encontrado. Tente outro nome ou ingrediente, ou tire um filtro.</p>}
       <div className="list">
         {results.map((recipe) => (
           <RecipeRow key={recipe.id} recipe={recipe} />

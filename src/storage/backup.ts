@@ -79,7 +79,13 @@ const isStringList = (value: unknown) => Array.isArray(value) && value.every((it
 
 function isIngredient(value: unknown): boolean {
   const i = value as Ingredient | null;
-  return !!i && typeof i.name === 'string' && typeof i.unit === 'string' && isNumberOrNull(i.quantity);
+  return (
+    !!i &&
+    typeof i.name === 'string' &&
+    typeof i.unit === 'string' &&
+    isNumberOrNull(i.quantity) &&
+    (i.quantityMax === undefined || typeof i.quantityMax === 'number')
+  );
 }
 
 function isRecipe(value: unknown): value is StoredRecipe {
@@ -91,6 +97,7 @@ function isRecipe(value: unknown): value is StoredRecipe {
     typeof r.name === 'string' &&
     (r.kind === 'doce' || r.kind === 'salgado' || r.kind === 'ambos' || r.kind === 'indefinido') &&
     (r.servingsUnit === undefined || typeof r.servingsUnit === 'string') &&
+    (r.book === undefined || (typeof r.book?.title === 'string' && isNumberOrNull(r.book?.page))) &&
     isStringList(r.categories) &&
     !!r.diet &&
     typeof r.diet === 'object' &&

@@ -167,6 +167,7 @@ export function RecipeForm({
       steps: parseSteps(steps),
       notes: [notes.trim(), leftoverText.trim()].filter(Boolean).join('\n'),
       videoUrl: videoUrl.trim(),
+      book: initial.book,
       photo,
       createdAt: initial.createdAt ?? now,
       updatedAt: now,
@@ -243,7 +244,7 @@ export function RecipeForm({
           <input inputMode="decimal" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="Ex.: 4 ou 1,5" />
         </label>
         <label className="field">
-          <span>Unidade, no plural</span>
+          <span>Unidade</span>
           <input list="servings-units" value={servingsUnit} onChange={(event) => setServingsUnit(event.target.value)} placeholder="pessoas, docinhos, fatias" />
           <datalist id="servings-units">
             {UNIT_SUGGESTIONS.map((unit) => <option key={unit} value={unit} />)}

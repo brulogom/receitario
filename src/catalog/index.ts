@@ -1,5 +1,7 @@
 import type { Recipe } from '../domain/types';
-import { doces } from './doces';
-import { salgados } from './salgados';
 
-export const catalog: Recipe[] = [...doces, ...salgados];
+/**
+ * Receitas que acompanham o aplicativo. Só entra aqui o que tem fonte real e licença
+ * que permita publicar; as receitas da pessoa vêm de Minhas Receitas e de Enviar livro.
+ */
+export const catalog: Recipe[] = [];

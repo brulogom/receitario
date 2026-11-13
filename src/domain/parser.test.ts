@@ -91,3 +91,16 @@ describe('parseRecipeText', () => {
     expect(r.unrecognized).toEqual(['Receita da vovó!']);
   });
 });
+
+test.each([
+  ['2 a 3 ovos', { quantity: 2, quantityMax: 3, unit: '', name: 'ovos' }],
+  ['2-3 ovos', { quantity: 2, quantityMax: 3, unit: '', name: 'ovos' }],
+  ['1 ou 2 xícaras de leite', { quantity: 1, quantityMax: 2, unit: 'xícara', name: 'leite' }],
+  ['0,05 l de leite', { quantity: 0.05, unit: 'l', name: 'leite' }],
+])('faixa e quantidade pequena: %s', (line, expected) => {
+  expect(parseIngredientLine(line)).toEqual(expected);
+});
+
+test('"a gosto" depois de um número não vira faixa', () => {
+  expect(parseIngredientLine('2 a gosto')).toEqual({ quantity: 2, unit: '', name: 'a gosto' });
+});

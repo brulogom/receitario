@@ -48,6 +48,48 @@ test('pede de novo ao voltar para o aplicativo', async () => {
   await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
 });
 
+describe('o sistema solta a tela com o aplicativo aberto', () => {
+  const sentinels: EventTarget[] = [];
+  function installTrackedLock() {
+    sentinels.length = 0;
+    const request = vi.fn(async () => {
+      const sentinel = new EventTarget() as EventTarget & { release: () => Promise<void> };
+      sentinel.release = vi.fn(async () => {});
+      sentinels.push(sentinel);
+      return sentinel;
+    });
+    Object.defineProperty(navigator, 'wakeLock', { value: { request }, configurable: true });
+    return request;
+  }
+
+  afterEach(() => vi.useRealTimers());
+
+  test('depois de um tempo ligada, pede de novo', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['Date'] });
+    const request = installTrackedLock();
+    const { result } = renderHook(() => useWakeLock(true));
+    await waitFor(() => expect(result.current.held).toBe(true));
+    vi.setSystemTime(Date.now() + 60_000);
+    await act(async () => {
+      sentinels[0].dispatchEvent(new Event('release'));
+    });
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.held).toBe(true));
+    expect(result.current.supported).toBe(true);
+  });
+
+  test('se soltar logo em seguida, avisa e não insiste', async () => {
+    const request = installTrackedLock();
+    const { result } = renderHook(() => useWakeLock(true));
+    await waitFor(() => expect(result.current.held).toBe(true));
+    await act(async () => {
+      sentinels[0].dispatchEvent(new Event('release'));
+    });
+    expect(result.current).toEqual({ supported: false, held: false });
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+});
+
 test('sem suporte, avisa em vez de falhar em silêncio', () => {
   const { result } = renderHook(() => useWakeLock(true));
   expect(result.current).toEqual({ supported: false, held: false });

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { saveMine } from '../../storage/recipes';
 import { aRecipe } from '../../storage/testRecipe';
 import { renderScreen, resetStorage } from '../testUtils';
@@ -38,11 +38,79 @@ test('mostra um passo por vez', async () => {
   expect(screen.queryByText('Misture tudo.')).not.toBeInTheDocument();
 });
 
-test('botão de temporizador aparece só em passo com tempo', async () => {
+test('passo com dois tempos oferece os dois', async () => {
+  await saveMine(aRecipe({ steps: ['Frite por 5 minutos de cada lado e asse por 20 minutos.'] }));
+  renderScreen(
+    <>
+      <CookScreen id="r1" />
+      <TimerBar />
+    </>,
+  );
+  await screen.findByText(/Frite por 5 minutos/);
+  expect(screen.getByLabelText('Minutos')).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Iniciar temporizador de 5 min' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Iniciar temporizador de 20 min' }));
+  expect(screen.getByText('05:00')).toBeInTheDocument();
+  expect(screen.getByText('20:00')).toBeInTheDocument();
+});
+
+test('recarregar continua no mesmo passo; Concluir recomeça', async () => {
   await open();
-  expect(screen.queryByRole('button', { name: /Iniciar temporizador/ })).not.toBeInTheDocument();
   next();
-  expect(screen.getByRole('button', { name: 'Iniciar temporizador de 30 min' })).toBeInTheDocument();
+  const reopen = () =>
+    renderScreen(
+      <>
+        <CookScreen id="r1" />
+      </>,
+    );
+  cleanup();
+  reopen();
+  expect(await screen.findByText('Passo 2 de 3')).toBeInTheDocument();
+  next();
+  fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+  cleanup();
+  reopen();
+  expect(await screen.findByText('Passo 1 de 3')).toBeInTheDocument();
+});
+
+test('passo guardado há mais de um dia não vale mais', async () => {
+  await open();
+  next();
+  cleanup();
+  vi.advanceTimersByTime(25 * 60 * 60_000);
+  renderScreen(<CookScreen id="r1" />);
+  expect(await screen.findByText('Passo 1 de 3')).toBeInTheDocument();
+});
+
+test('receita sem passos explica e volta, sem "Passo 1 de 0"', async () => {
+  await saveMine(aRecipe({ steps: [] }));
+  renderScreen(<CookScreen id="r1" />);
+  expect(await screen.findByText(/ainda não tem modo de preparo/)).toBeInTheDocument();
+  expect(screen.queryByText(/Passo 1 de 0/)).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Voltar à receita' })).toHaveAttribute('href', '#/receita/r1');
+});
+
+test('passo com tempo já traz os minutos preenchidos', async () => {
+  await open();
+  next();
+  expect(screen.getByLabelText('Minutos')).toHaveValue('30');
+  expect(screen.getByRole('button', { name: 'Iniciar temporizador de 30 min' })).toBeEnabled();
+});
+
+test('passo sem tempo permite temporizador manual', async () => {
+  await open();
+  expect(screen.getByLabelText('Minutos')).toHaveValue('');
+  expect(screen.getByRole('button', { name: 'Iniciar temporizador' })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: '7' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Iniciar temporizador de 7 min' }));
+  expect(screen.getByText('07:00')).toBeInTheDocument();
+});
+
+test('minutos manuais não passam para o passo seguinte', async () => {
+  await open();
+  fireEvent.change(screen.getByLabelText('Minutos'), { target: { value: '7' } });
+  next();
+  expect(screen.getByLabelText('Minutos')).toHaveValue('30');
 });
 
 test('dá para ajustar o tempo antes de iniciar', async () => {

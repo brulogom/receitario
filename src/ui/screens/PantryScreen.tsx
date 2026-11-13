@@ -14,7 +14,7 @@ function loadPantry(): string {
 }
 
 export function PantryScreen() {
-  const { all } = useRecipes();
+  const { all, loaded } = useRecipes();
   const [text, setText] = useState(loadPantry);
 
   const change = (value: string) => {
@@ -36,8 +36,11 @@ export function PantryScreen() {
         <span>Ingredientes, separados por vírgula</span>
         <input className="search-input" value={text} onChange={(event) => change(event.target.value)} placeholder="ovo, leite, açúcar, fubá" />
       </label>
-      {!hasText && <p className="muted">Conte o que você tem e eu mostro o que dá para fazer, incluindo receitas em que faltam só um ou dois ingredientes. Sal, água e óleo já contam como disponíveis.</p>}
-      {hasText && results.length === 0 && <p className="muted">Nenhuma receita por perto com esses ingredientes. Tente acrescentar mais alguns.</p>}
+      {loaded && all.length === 0 && (
+        <p className="muted">Esta busca olha as suas receitas, e ainda não há nenhuma. <a href="#/livro">Envie um livro de receitas</a> ou <a href="#/nova">anote a primeira</a>.</p>
+      )}
+      {!hasText && all.length > 0 && <p className="muted">Conte o que você tem e eu mostro o que dá para fazer, incluindo receitas em que faltam só um ou dois ingredientes. Sal, água e óleo já contam como disponíveis.</p>}
+      {hasText && all.length > 0 && results.length === 0 && <p className="muted">Nenhuma receita por perto com esses ingredientes. Tente acrescentar mais alguns.</p>}
       <div className="list">
         {results.map(({ recipe, missing }) => (
           <RecipeRow

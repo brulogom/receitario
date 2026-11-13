@@ -35,7 +35,9 @@ export default defineConfig({
         } as object),
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg}'],
+        // O leitor de PDF (.mjs) passa de 1 MB: sem isto, enviar livro não funcionaria sem internet.
+        globPatterns: ['**/*.{js,mjs,css,html,woff2,png,svg}'],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         navigateFallback: 'index.html',
       },
     }),

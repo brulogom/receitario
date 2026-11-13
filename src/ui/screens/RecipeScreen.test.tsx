@@ -25,6 +25,25 @@ test('mostra valor decimal com vírgula e a unidade no singular', async () => {
   expect(screen.getAllByText(/1,5 pessoa$/).length).toBeGreaterThan(0);
 });
 
+test('o ajuste continua ao sair do modo cozinha e voltar', async () => {
+  await saveMine(aRecipe({ servings: 4 }));
+  const first = renderScreen(<RecipeScreen id="r1" />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Mais pessoas' }));
+  first.unmount();
+  renderScreen(<RecipeScreen id="r1" />);
+  expect(await screen.findByRole('status')).toHaveTextContent('4,5');
+});
+
+test('o ajuste deixa de valer se a receita mudar de rendimento', async () => {
+  await saveMine(aRecipe({ servings: 4 }));
+  const first = renderScreen(<RecipeScreen id="r1" />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Mais pessoas' }));
+  first.unmount();
+  await saveMine(aRecipe({ servings: 10 }));
+  renderScreen(<RecipeScreen id="r1" />);
+  expect(await screen.findByRole('status')).toHaveTextContent('10');
+});
+
 test('não deixa as pessoas chegarem a zero', async () => {
   await saveMine(aRecipe({ servings: 0.5 }));
   renderScreen(<RecipeScreen id="r1" />);
